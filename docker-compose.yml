@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dhub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dhub}
+      POSTGRES_DB: ${POSTGRES_DB:-dhub}
+    volumes:
+      - dhub_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dhub} -d ${POSTGRES_DB:-dhub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=${POSTGRES_DB:-dhub};Username=${POSTGRES_USER:-dhub};Password=${POSTGRES_PASSWORD:-dhub}
+      Auth__Usuario: ${AUTH_USUARIO:-coordinador}
+      Auth__Password: ${AUTH_PASSWORD:-coordinador123}
+      Auth__Nombre: ${AUTH_NOMBRE:-Coordinador Técnico}
+      Seed__Enabled: ${SEED_ENABLED:-true}
+      Cors__AllowedOrigins__0: http://localhost:3000
+    ports:
+      - "5280:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  dhub_pgdata:

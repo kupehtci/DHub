@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DHub.Api/DHub.Api.csproj" />
+    <Project Path="src/DHub.Domain/DHub.Domain.csproj" />
+    <Project Path="src/DHub.Infrastructure/DHub.Infrastructure.csproj" />
+  </Folder>
+</Solution>

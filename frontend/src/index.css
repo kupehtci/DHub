@@ -1,0 +1,31 @@
+@import "@heroui/styles";
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-background text-foreground;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.4);
+  border-radius: 9999px;
+}
+
+.kanban-column {
+  min-width: 280px;
+  max-width: 280px;
+}
+
+@media (max-width: 768px) {
+  .kanban-column {
+    min-width: 240px;
+    max-width: 240px;
+  }
+}
