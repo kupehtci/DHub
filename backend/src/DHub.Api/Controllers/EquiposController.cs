@@ -134,7 +134,7 @@ public class EquiposController : ControllerBase
         var resultado = equipo.Miembros.OrderBy(m => m.Nombre).Select(m =>
         {
             var tareasPersona = tareas.Where(t => t.ResponsableId == m.Id).OrderBy(t => t.FechaObjetivo).ToList();
-            return new TableroPorPersonaDto(m.Id, m.Nombre, tareasPersona.Where(t => t.EsActiva()).Sum(t => t.EstimacionHoras),
+            return new TableroPorPersonaDto(m.Id, m.Nombre, tareasPersona.Where(t => t.EsActiva()).Sum(t => t.HorasSemanales()),
                 tareasPersona.Select(t => t.ToDto()).ToList());
         }).ToList();
 
@@ -151,14 +151,13 @@ public class EquiposController : ControllerBase
     [HttpGet("{id:guid}/tablero")]
     public async Task<ActionResult<List<TareaDto>>> Tablero(Guid id)
     {
-        var equipo = await _db.Equipos.Include(e => e.Miembros).FirstOrDefaultAsync(e => e.Id == id);
+        var equipo = await _db.Equipos.FirstOrDefaultAsync(e => e.Id == id);
         if (equipo is null) return NotFound();
-        var miembroIds = equipo.Miembros.Select(m => m.Id).ToList();
 
         var tareas = await _db.Tareas
             .Include(t => t.Proyecto)
             .Include(t => t.Responsable)
-            .Where(t => (t.ResponsableId.HasValue && miembroIds.Contains(t.ResponsableId.Value)) || t.Proyecto!.EquipoId == id)
+            .Where(t => t.Proyecto!.EquipoId == id)
             .OrderBy(t => t.Prioridad)
             .ToListAsync();
 

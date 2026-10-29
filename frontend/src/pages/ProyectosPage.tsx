@@ -6,8 +6,10 @@ import { FormModal } from "../components/FormModal";
 import { IconDownload, IconPlus } from "../components/Icons";
 import { SelectField } from "../components/SelectField";
 import { StatusChip } from "../components/StatusChip";
+import { PrioridadChip } from "../components/PrioridadChip";
+import { PersonaAvatar } from "../components/PersonaAvatar";
 import { equiposApi, personasApi, proyectosApi } from "../lib/api";
-import { ESTADO_PROYECTO_COLOR, ESTADO_PROYECTO_LABEL, formatFecha, PRIORIDAD_COLOR, PRIORIDAD_LABEL } from "../lib/format";
+import { ESTADO_PROYECTO_COLOR, ESTADO_PROYECTO_LABEL, formatFecha, PRIORIDAD_LABEL } from "../lib/format";
 import type { Equipo, EstadoProyecto, Persona, Prioridad, Proyecto } from "../types";
 
 const ESTADOS: EstadoProyecto[] = ["Planificado", "EnCurso", "EnPausa", "Cerrado", "Cancelado"];
@@ -198,12 +200,15 @@ export default function ProyectosPage() {
                   </Link>
                   <p className="text-xs text-muted">{p.sistemaInformacion}</p>
                 </div>
-                <StatusChip color={PRIORIDAD_COLOR[p.prioridad]} label={PRIORIDAD_LABEL[p.prioridad]} />
+                <PrioridadChip prioridad={p.prioridad} />
               </div>
               <p className="text-sm text-muted">{p.clienteArea}</p>
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
                 <span>{p.equipoNombre ?? "Sin equipo"}</span>
-                <span>· {p.responsableNombre ?? "Sin responsable"}</span>
+                <span className="flex items-center gap-1.5">
+                  · {p.responsableId ? <PersonaAvatar id={p.responsableId} nombre={p.responsableNombre ?? ""} size="sm" /> : null}
+                  {p.responsableNombre ?? "Sin responsable"}
+                </span>
                 <span>· {formatFecha(p.fechaInicio)} → {formatFecha(p.fechaFin)}</span>
               </div>
               <div className="flex items-center gap-2 pt-1">

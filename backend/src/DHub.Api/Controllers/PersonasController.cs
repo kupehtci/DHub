@@ -48,7 +48,7 @@ public class PersonasController : ControllerBase
         var dto = new PersonaDetalleDto(
             p.Id, p.Nombre, p.Email, p.Rol, equipos,
             p.DisponibilidadSemanalHoras, p.Estado,
-            tareas.Where(t => t.EsActiva()).Sum(t => t.EstimacionHoras),
+            tareas.Where(t => t.EsActiva()).Sum(t => t.HorasSemanales()),
             tareas.Where(t => t.EsActiva()).Select(t => t.ToDto()).ToList(),
             tareas.Where(t => t.Estado == EstadoTarea.Backlog || t.Estado == EstadoTarea.Planificada).Select(t => t.ToDto()).ToList(),
             tareas.Where(t => t.Estado == EstadoTarea.Bloqueada).Select(t => t.ToDto()).ToList(),

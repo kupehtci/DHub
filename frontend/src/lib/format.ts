@@ -61,11 +61,12 @@ export const PRIORIDAD_LABEL: Record<Prioridad, string> = {
   Critica: "Crítica",
 };
 
-export const PRIORIDAD_COLOR: Record<Prioridad, ChipColor> = {
-  Baja: "default",
-  Media: "accent",
-  Alta: "warning",
-  Critica: "danger",
+// Colores para el gráfico de prioridades en Analíticas (reutilizan los mismos tokens que PrioridadChip).
+export const PRIORIDAD_CHART_COLOR: Record<Prioridad, string> = {
+  Baja: "var(--success)",
+  Media: "var(--warning)",
+  Alta: "var(--danger-soft-foreground)",
+  Critica: "var(--danger)",
 };
 
 export const ESTADO_PROYECTO_LABEL: Record<EstadoProyecto, string> = {

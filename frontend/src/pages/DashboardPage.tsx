@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { SelectField } from "../components/SelectField";
 import { StatCard } from "../components/StatCard";
 import { StatusChip } from "../components/StatusChip";
+import { PrioridadChip } from "../components/PrioridadChip";
+import { PersonaAvatar } from "../components/PersonaAvatar";
 import { IconFolder, IconUsers, IconWarning } from "../components/Icons";
 import { dashboardApi, equiposApi } from "../lib/api";
 import {
@@ -14,8 +16,6 @@ import {
   formatFecha,
   IMPACTO_COLOR,
   IMPACTO_LABEL,
-  PRIORIDAD_COLOR,
-  PRIORIDAD_LABEL,
 } from "../lib/format";
 import type { Dashboard, Equipo } from "../types";
 
@@ -93,7 +93,7 @@ export default function DashboardPage() {
                         <p className="text-xs text-muted">{p.equipoNombre ?? "Sin equipo"}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <StatusChip color={PRIORIDAD_COLOR[p.prioridad]} label={PRIORIDAD_LABEL[p.prioridad]} />
+                        <PrioridadChip prioridad={p.prioridad} />
                         <StatusChip color={ESTADO_PROYECTO_COLOR[p.estado]} label={ESTADO_PROYECTO_LABEL[p.estado]} />
                       </div>
                     </Link>
@@ -136,11 +136,13 @@ export default function DashboardPage() {
                     <div key={t.id} className="flex items-center justify-between rounded-lg border border-danger/20 bg-danger-soft/40 px-3 py-2 text-sm">
                       <div>
                         <p className="font-medium text-foreground">{t.titulo}</p>
-                        <p className="text-xs text-muted">
-                          {t.proyectoCodigo} · {t.responsableNombre ?? "Sin responsable"} · objetivo {formatFecha(t.fechaObjetivo)}
+                        <p className="flex items-center gap-1.5 text-xs text-muted">
+                          {t.proyectoCodigo} ·
+                          {t.responsableId ? <PersonaAvatar id={t.responsableId} nombre={t.responsableNombre ?? ""} size="sm" /> : null}
+                          {t.responsableNombre ?? "Sin responsable"} · objetivo {formatFecha(t.fechaObjetivo)}
                         </p>
                       </div>
-                      <StatusChip color={PRIORIDAD_COLOR[t.prioridad]} label={PRIORIDAD_LABEL[t.prioridad]} />
+                      <PrioridadChip prioridad={t.prioridad} />
                     </div>
                   ))
                 )}
@@ -159,8 +161,10 @@ export default function DashboardPage() {
                     <div key={r.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
                       <div>
                         <p className="font-medium text-foreground">{r.titulo}</p>
-                        <p className="text-xs text-muted">
-                          {r.proyectoNombre ?? "—"} · {r.responsableNombre ?? "Sin responsable"}
+                        <p className="flex items-center gap-1.5 text-xs text-muted">
+                          {r.proyectoNombre ?? "—"} ·
+                          {r.responsableId ? <PersonaAvatar id={r.responsableId} nombre={r.responsableNombre ?? ""} size="sm" /> : null}
+                          {r.responsableNombre ?? "Sin responsable"}
                         </p>
                       </div>
                       <StatusChip color={IMPACTO_COLOR[r.impacto]} label={IMPACTO_LABEL[r.impacto]} />
@@ -183,11 +187,20 @@ export default function DashboardPage() {
                   <Link
                     key={t.id}
                     to={`/proyectos/${t.proyectoId}`}
-                    className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm hover:bg-surface-secondary"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm hover:bg-surface-secondary"
                   >
-                    <div>
-                      <p className="font-medium text-foreground">{t.titulo}</p>
-                      <p className="text-xs text-muted">{t.proyectoCodigo} · {t.responsableNombre ?? "Sin responsable"}</p>
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-foreground">{t.titulo}</p>
+                      <p className="flex items-center gap-1.5 text-xs text-muted">
+                        {t.proyectoCodigo} ·
+                        {t.responsableId ? <PersonaAvatar id={t.responsableId} nombre={t.responsableNombre ?? ""} size="sm" /> : null}
+                        {t.responsableNombre ?? "Sin responsable"}
+                      </p>
+                      {t.estado === "Bloqueada" && t.motivoBloqueo ? (
+                        <p className="truncate text-xs text-danger" title={t.motivoBloqueo}>
+                          Motivo: {t.motivoBloqueo}
+                        </p>
+                      ) : null}
                     </div>
                     {t.estado === "Bloqueada" ? (
                       <StatusChip color="danger" label="Bloqueada" />

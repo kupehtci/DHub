@@ -81,11 +81,15 @@ Reglas de negocio aplicadas en el backend:
    Resumen, Tareas, Hitos, Riesgos y Notas, con enlace al tablero de Jira.
 5. **Tablero por equipo**: Kanban clásico (Backlog, Planificada, En curso, En
    revisión/QA, Bloqueada, Hecha, Cancelada) con arrastrar y soltar para cambiar el
-   estado de una tarea. Cada tarea admite **comentarios** y un enlace a su ticket
-   de Jira.
+   estado de una tarea; solo incluye tareas de proyectos del equipo seleccionado.
+   Cada tarea admite **comentarios** y un enlace a su ticket de Jira. Al mover una
+   tarjeta a **Bloqueada** o a **Hecha** se pide el motivo del bloqueo o la fecha
+   de cierre antes de guardar.
 6. **Tablero por usuario**: Kanban donde **cada columna es una persona del equipo
    seleccionado**; arrastrar una tarjeta a otra columna reasigna la tarea a esa
    persona.
+6b. **Tablero por proyecto**: el mismo Kanban por estados, pero eligiendo un
+    proyecto en lugar de un equipo.
 7. **Calendario**: vista mensual con las tareas (por fecha objetivo) y los
    **eventos** del equipo (reuniones, entregas, hitos) en su día y hora; agenda del
    día seleccionado y alta/edición/baja de eventos.

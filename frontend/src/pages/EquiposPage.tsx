@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FormModal } from "../components/FormModal";
 import { IconPlus } from "../components/Icons";
+import { PersonaAvatar } from "../components/PersonaAvatar";
 import { SelectField } from "../components/SelectField";
 import { StatusChip } from "../components/StatusChip";
 import { equiposApi, personasApi } from "../lib/api";
@@ -98,7 +99,11 @@ export default function EquiposPage() {
                   <Link to={`/equipos/${e.id}`} className="font-semibold text-link hover:underline">
                     {e.nombre}
                   </Link>
-                  <p className="text-xs text-muted">Líder: {e.liderTecnicoNombre ?? "Sin asignar"}</p>
+                  <p className="flex items-center gap-1.5 text-xs text-muted">
+                    Líder:
+                    {e.liderTecnicoId ? <PersonaAvatar id={e.liderTecnicoId} nombre={e.liderTecnicoNombre ?? ""} size="sm" /> : null}
+                    {e.liderTecnicoNombre ?? "Sin asignar"}
+                  </p>
                 </div>
                 <StatusChip color={e.estado === "Activo" ? "success" : "default"} label={ESTADO_EQUIPO_LABEL[e.estado]} />
               </div>

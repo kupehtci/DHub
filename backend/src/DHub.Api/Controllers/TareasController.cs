@@ -29,7 +29,7 @@ public class TareasController : ControllerBase
     {
         var query = BaseQuery();
         if (proyectoId.HasValue) query = query.Where(t => t.ProyectoId == proyectoId);
-        if (equipoId.HasValue) query = query.Where(t => t.Proyecto!.EquipoId == equipoId || (t.Responsable != null && t.Responsable.Equipos.Any(e => e.Id == equipoId)));
+        if (equipoId.HasValue) query = query.Where(t => t.Proyecto!.EquipoId == equipoId);
         if (responsableId.HasValue) query = query.Where(t => t.ResponsableId == responsableId);
         if (estado.HasValue) query = query.Where(t => t.Estado == estado);
         if (prioridad.HasValue) query = query.Where(t => t.Prioridad == prioridad);
@@ -83,6 +83,8 @@ public class TareasController : ControllerBase
             JiraTicketUrl = dto.JiraTicketUrl,
             JiraTicketClave = dto.JiraTicketClave,
         };
+        if (tarea.Estado == EstadoTarea.Hecha && tarea.FechaCierre is null)
+            tarea.FechaCierre = DateOnly.FromDateTime(DateTime.UtcNow);
         _db.Tareas.Add(tarea);
         await _db.SaveChangesAsync();
         var creada = await BaseQuery().FirstAsync(t => t.Id == tarea.Id);
@@ -115,6 +117,8 @@ public class TareasController : ControllerBase
         tarea.FechaRevisionBloqueo = dto.Estado == EstadoTarea.Bloqueada ? dto.FechaRevisionBloqueo : null;
         tarea.JiraTicketUrl = dto.JiraTicketUrl;
         tarea.JiraTicketClave = dto.JiraTicketClave;
+        if (tarea.Estado == EstadoTarea.Hecha && tarea.FechaCierre is null)
+            tarea.FechaCierre = DateOnly.FromDateTime(DateTime.UtcNow);
         await _db.SaveChangesAsync();
         return NoContent();
     }

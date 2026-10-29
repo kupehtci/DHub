@@ -19,6 +19,7 @@ export default function TableroEquipoPage() {
   const [loading, setLoading] = useState(false);
   const [editTarea, setEditTarea] = useState<Tarea | null>(null);
   const [bloqueoDraft, setBloqueoDraft] = useState<Tarea | null>(null);
+  const [hechaDraft, setHechaDraft] = useState<Tarea | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -58,6 +59,10 @@ export default function TableroEquipoPage() {
 
     if (nuevoEstado === "Bloqueada") {
       setBloqueoDraft({ ...tarea, estado: "Bloqueada" });
+      return;
+    }
+    if (nuevoEstado === "Hecha") {
+      setHechaDraft({ ...tarea, estado: "Hecha" });
       return;
     }
 
@@ -123,6 +128,14 @@ export default function TableroEquipoPage() {
         isOpen={!!bloqueoDraft}
         onOpenChange={(open) => !open && setBloqueoDraft(null)}
         tarea={bloqueoDraft}
+        proyectos={proyectos}
+        personas={personas}
+        onSaved={cargar}
+      />
+      <TareaFormModal
+        isOpen={!!hechaDraft}
+        onOpenChange={(open) => !open && setHechaDraft(null)}
+        tarea={hechaDraft}
         proyectos={proyectos}
         personas={personas}
         onSaved={cargar}

@@ -7,6 +7,8 @@ import { IconPlus } from "../components/Icons";
 import { RiesgoFormModal } from "../components/RiesgoFormModal";
 import { SelectField } from "../components/SelectField";
 import { StatusChip } from "../components/StatusChip";
+import { PrioridadChip } from "../components/PrioridadChip";
+import { PersonaAvatar } from "../components/PersonaAvatar";
 import { TareaFormModal } from "../components/TareaFormModal";
 import { hitosApi, notasApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
 import {
@@ -22,8 +24,6 @@ import {
   formatHoras,
   IMPACTO_COLOR,
   IMPACTO_LABEL,
-  PRIORIDAD_COLOR,
-  PRIORIDAD_LABEL,
   TIPO_NOTA_LABEL,
 } from "../lib/format";
 import type { EstadoHito, Nota, Persona, ProyectoDetalle, Riesgo, Tarea, TipoNota } from "../types";
@@ -102,6 +102,8 @@ export default function ProyectoDetallePage() {
     );
   }
 
+  const tareasBloqueadas = proyecto.tareas.filter((t) => t.estado === "Bloqueada");
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -112,8 +114,10 @@ export default function ProyectoDetallePage() {
           <p className="text-sm text-muted">
             {proyecto.sistemaInformacion} · {proyecto.clienteArea}
           </p>
-          <p className="mt-1 text-sm text-muted">
-            {proyecto.equipoNombre ?? "Sin equipo"} · Responsable: {proyecto.responsableNombre ?? "Sin responsable"} ·{" "}
+          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted">
+            {proyecto.equipoNombre ?? "Sin equipo"} · Responsable:
+            {proyecto.responsableId ? <PersonaAvatar id={proyecto.responsableId} nombre={proyecto.responsableNombre ?? ""} size="sm" /> : null}
+            {proyecto.responsableNombre ?? "Sin responsable"} ·{" "}
             {formatFecha(proyecto.fechaInicio)} → {formatFecha(proyecto.fechaFin)}
           </p>
           {proyecto.jiraProyectoUrl ? (
@@ -123,7 +127,7 @@ export default function ProyectoDetallePage() {
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <StatusChip color={PRIORIDAD_COLOR[proyecto.prioridad]} label={PRIORIDAD_LABEL[proyecto.prioridad]} />
+          <PrioridadChip prioridad={proyecto.prioridad} />
           <StatusChip color={ESTADO_PROYECTO_COLOR[proyecto.estado]} label={ESTADO_PROYECTO_LABEL[proyecto.estado]} />
         </div>
       </div>
@@ -192,7 +196,8 @@ export default function ProyectoDetallePage() {
                 <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
                   <div className="min-w-0">
                     <p className="truncate font-medium text-foreground">{t.titulo}</p>
-                    <p className="text-xs text-muted">
+                    <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                      {t.responsableId ? <PersonaAvatar id={t.responsableId} nombre={t.responsableNombre ?? ""} size="sm" /> : null}
                       {t.responsableNombre ?? "Sin responsable"} · {formatHoras(t.estimacionHoras)} · objetivo {formatFecha(t.fechaObjetivo)}
                       {t.jiraTicketUrl ? (
                         <>
@@ -205,7 +210,7 @@ export default function ProyectoDetallePage() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <StatusChip color={PRIORIDAD_COLOR[t.prioridad]} label={PRIORIDAD_LABEL[t.prioridad]} />
+                    <PrioridadChip prioridad={t.prioridad} />
                     <StatusChip color={ESTADO_TAREA_COLOR[t.estado]} label={ESTADO_TAREA_LABEL[t.estado]} />
                     <Button size="sm" variant="ghost" onPress={() => setTareaModal({ open: true, tarea: t })}>
                       Editar
@@ -258,7 +263,32 @@ export default function ProyectoDetallePage() {
         </Tabs.Panel>
 
         <Tabs.Panel className="flex flex-col gap-3 pt-4" id="riesgos">
-          <div className="flex justify-end">
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-foreground">Tareas bloqueadas</p>
+            {tareasBloqueadas.length === 0 ? (
+              <p className="text-sm text-muted">No hay tareas bloqueadas en este proyecto.</p>
+            ) : (
+              tareasBloqueadas.map((t) => (
+                <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger-soft/30 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-foreground">{t.titulo}</p>
+                    <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                      {t.responsableId ? <PersonaAvatar id={t.responsableId} nombre={t.responsableNombre ?? ""} size="sm" /> : null}
+                      {t.responsableNombre ?? "Sin responsable"} · revisión {formatFecha(t.fechaRevisionBloqueo)}
+                      {t.responsableBloqueoNombre ? ` · desbloquea: ${t.responsableBloqueoNombre}` : ""}
+                    </p>
+                    {t.motivoBloqueo ? <p className="truncate text-xs text-danger">Motivo: {t.motivoBloqueo}</p> : null}
+                  </div>
+                  <Button size="sm" variant="ghost" onPress={() => setTareaModal({ open: true, tarea: t })}>
+                    Editar
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-sm font-medium text-foreground">Riesgos</p>
             <Button onPress={() => setRiesgoModal({ open: true, riesgo: null })}>
               <IconPlus />
               Nuevo riesgo / bloqueo
@@ -272,7 +302,8 @@ export default function ProyectoDetallePage() {
                 <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
                   <div className="min-w-0">
                     <p className="truncate font-medium text-foreground">{r.titulo}</p>
-                    <p className="text-xs text-muted">
+                    <p className="flex items-center gap-1.5 text-xs text-muted">
+                      {r.responsableId ? <PersonaAvatar id={r.responsableId} nombre={r.responsableNombre ?? ""} size="sm" /> : null}
                       {r.responsableNombre ?? "Sin responsable"} · revisión {formatFecha(r.fechaRevision)}
                     </p>
                   </div>

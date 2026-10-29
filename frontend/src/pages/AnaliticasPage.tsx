@@ -35,7 +35,7 @@ import {
   PRIORIDAD_LABEL,
   ESTADO_TAREA_COLOR,
   IMPACTO_COLOR,
-  PRIORIDAD_COLOR,
+  PRIORIDAD_CHART_COLOR,
 } from "../lib/format";
 import { ESTADOS_TAREA, type ImpactoRiesgo, type Persona, type Prioridad, type Proyecto, type Riesgo, type Tarea } from "../types";
 
@@ -131,7 +131,7 @@ export default function AnaliticasPage() {
 
   const porPrioridad = useMemo(() => {
     const prioridades: Prioridad[] = ["Baja", "Media", "Alta", "Critica"];
-    return prioridades.map((p) => ({ prioridad: PRIORIDAD_LABEL[p], cantidad: tareas.filter((t) => t.prioridad === p).length, color: CHIP_COLOR_TO_CHART[PRIORIDAD_COLOR[p]] }));
+    return prioridades.map((p) => ({ prioridad: PRIORIDAD_LABEL[p], cantidad: tareas.filter((t) => t.prioridad === p).length, color: PRIORIDAD_CHART_COLOR[p] }));
   }, [tareas]);
 
   const riesgosPorImpacto = useMemo(() => {

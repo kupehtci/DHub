@@ -9,6 +9,10 @@ import { SelectField } from "./SelectField";
 const TIPOS: TipoTarea[] = ["HistoriaUsuario", "Bug", "Tarea", "Mejora", "Soporte"];
 const PRIORIDADES: Prioridad[] = ["Baja", "Media", "Alta", "Critica"];
 
+function hoy(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export type ProyectoOption = Pick<Proyecto, "id" | "codigo" | "nombre">;
 
 interface FormState {
@@ -22,6 +26,7 @@ interface FormState {
   estimacionHoras: string;
   fechaInicio: string;
   fechaObjetivo: string;
+  fechaCierre: string;
   motivoBloqueo: string;
   responsableBloqueoId: string | null;
   fechaRevisionBloqueo: string;
@@ -41,6 +46,7 @@ function emptyForm(proyectoId?: string): FormState {
     estimacionHoras: "8",
     fechaInicio: "",
     fechaObjetivo: "",
+    fechaCierre: "",
     motivoBloqueo: "",
     responsableBloqueoId: null,
     fechaRevisionBloqueo: "",
@@ -92,6 +98,7 @@ export function TareaFormModal({
         estimacionHoras: String(tarea.estimacionHoras),
         fechaInicio: tarea.fechaInicio ?? "",
         fechaObjetivo: tarea.fechaObjetivo ?? "",
+        fechaCierre: tarea.fechaCierre ?? (tarea.estado === "Hecha" ? hoy() : ""),
         motivoBloqueo: tarea.motivoBloqueo ?? "",
         responsableBloqueoId: tarea.responsableBloqueoId,
         fechaRevisionBloqueo: tarea.fechaRevisionBloqueo ?? "",
@@ -108,11 +115,16 @@ export function TareaFormModal({
   }, [isOpen, tarea, defaultProyectoId]);
 
   const isBloqueada = form.estado === "Bloqueada";
+  const isHecha = form.estado === "Hecha";
 
   const handleSave = async () => {
     setError(null);
     if (isBloqueada && (!form.motivoBloqueo || !form.responsableBloqueoId || !form.fechaRevisionBloqueo)) {
       setError("Una tarea bloqueada debe tener motivo, responsable y fecha de revisión.");
+      return;
+    }
+    if (isHecha && !form.fechaCierre) {
+      setError("Indica la fecha en la que se completó la tarea.");
       return;
     }
     setSaving(true);
@@ -128,7 +140,7 @@ export function TareaFormModal({
         estimacionHoras: Number(form.estimacionHoras) || 0,
         fechaInicio: form.fechaInicio || null,
         fechaObjetivo: form.fechaObjetivo || null,
-        fechaCierre: tarea?.fechaCierre ?? null,
+        fechaCierre: isHecha ? form.fechaCierre : null,
         motivoBloqueo: isBloqueada ? form.motivoBloqueo : null,
         responsableBloqueoId: isBloqueada ? form.responsableBloqueoId : null,
         fechaRevisionBloqueo: isBloqueada ? form.fechaRevisionBloqueo || null : null,
@@ -203,7 +215,10 @@ export function TareaFormModal({
           label="Estado"
           options={ESTADOS_TAREA.map((e) => ({ id: e, label: e }))}
           value={form.estado}
-          onChange={(v) => setForm((f) => ({ ...f, estado: (v as EstadoTarea) ?? "Backlog" }))}
+          onChange={(v) => {
+            const estado = (v as EstadoTarea) ?? "Backlog";
+            setForm((f) => ({ ...f, estado, fechaCierre: estado === "Hecha" ? f.fechaCierre || hoy() : f.fechaCierre }));
+          }}
         />
         <TextField value={form.estimacionHoras} onChange={(v) => setForm((f) => ({ ...f, estimacionHoras: v }))}>
           <Label>Estimación (horas)</Label>
@@ -246,6 +261,16 @@ export function TareaFormModal({
             <Label>Fecha de revisión</Label>
             <Input />
             <Description>Fecha en la que se revisará si el bloqueo sigue vigente</Description>
+          </TextField>
+        </div>
+      ) : null}
+
+      {isHecha ? (
+        <div className="flex flex-col gap-3 rounded-xl border border-success/30 bg-success-soft/30 p-3">
+          <p className="text-sm font-medium text-success">¿Cuándo se completó la tarea?</p>
+          <TextField isRequired type="date" value={form.fechaCierre} onChange={(v) => setForm((f) => ({ ...f, fechaCierre: v }))}>
+            <Label>Fecha de cierre</Label>
+            <Input />
           </TextField>
         </div>
       ) : null}

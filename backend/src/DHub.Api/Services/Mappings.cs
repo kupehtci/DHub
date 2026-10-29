@@ -42,6 +42,17 @@ public static class Mappings
     public static bool EsActiva(this Tarea t) =>
         t.Estado is EstadoTarea.Planificada or EstadoTarea.EnCurso or EstadoTarea.EnRevision or EstadoTarea.Bloqueada;
 
+    // Reparte la estimación de la tarea entre sus semanas de duración (fecha inicio -> fecha objetivo),
+    // para que la carga semanal de una persona no cuente de golpe las horas de tareas largas.
+    // Sin fechas, o con una duración menor a una semana, se cuenta como una semana completa.
+    public static decimal HorasSemanales(this Tarea t)
+    {
+        if (!t.FechaInicio.HasValue || !t.FechaObjetivo.HasValue) return t.EstimacionHoras;
+        var dias = t.FechaObjetivo.Value.DayNumber - t.FechaInicio.Value.DayNumber;
+        var semanas = Math.Max(1m, dias / 7m);
+        return t.EstimacionHoras / semanas;
+    }
+
     public static PersonaDto ToDto(this Persona p)
     {
         var tareas = p.TareasAsignadas ?? new List<Tarea>();
@@ -54,7 +65,7 @@ public static class Mappings
             (p.Equipos ?? new List<Equipo>()).OrderBy(e => e.Nombre).Select(e => new EquipoResumenDto(e.Id, e.Nombre)).ToList(),
             p.DisponibilidadSemanalHoras,
             p.Estado,
-            activas.Sum(t => t.EstimacionHoras),
+            activas.Sum(t => t.HorasSemanales()),
             activas.Count,
             tareas.Count(t => t.Estado == EstadoTarea.Bloqueada),
             tareas.Count(t => t.EsVencida())

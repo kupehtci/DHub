@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { to: "/proyectos", label: "Proyectos", icon: IconFolder },
   { to: "/tablero", label: "Tablero por equipo", icon: IconKanban },
   { to: "/tablero-usuarios", label: "Tablero por usuario", icon: IconPerson },
+  { to: "/tablero-proyecto", label: "Tablero por proyecto", icon: IconFolder },
   { to: "/calendario", label: "Calendario", icon: IconCalendar },
   { to: "/analiticas", label: "Analíticas", icon: IconChartBar },
   { to: "/riesgos", label: "Riesgos y bloqueos", icon: IconWarning },

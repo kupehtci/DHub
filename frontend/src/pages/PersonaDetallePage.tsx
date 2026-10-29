@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { PersonaAvatar } from "../components/PersonaAvatar";
 import { StatCard } from "../components/StatCard";
 import { StatusChip } from "../components/StatusChip";
+import { PrioridadChip } from "../components/PrioridadChip";
 import { notasApi, personasApi } from "../lib/api";
 import {
   ESTADO_PERSONA_COLOR,
@@ -13,8 +14,6 @@ import {
   ESTADO_TAREA_LABEL,
   formatFecha,
   formatHoras,
-  PRIORIDAD_COLOR,
-  PRIORIDAD_LABEL,
   TIPO_NOTA_LABEL,
 } from "../lib/format";
 import type { Nota, PersonaDetalle, Tarea } from "../types";
@@ -32,7 +31,7 @@ function TareaRow({ t }: { t: Tarea }) {
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <StatusChip color={PRIORIDAD_COLOR[t.prioridad]} label={PRIORIDAD_LABEL[t.prioridad]} />
+        <PrioridadChip prioridad={t.prioridad} />
         <StatusChip color={ESTADO_TAREA_COLOR[t.estado]} label={ESTADO_TAREA_LABEL[t.estado]} />
       </div>
     </Link>

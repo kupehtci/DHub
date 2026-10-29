@@ -3,6 +3,7 @@ import { Spinner } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { DraggableCard, DroppableColumn } from "../components/kanban/DndPrimitives";
 import { TareaCard } from "../components/kanban/TareaCard";
+import { PersonaAvatar } from "../components/PersonaAvatar";
 import { SelectField } from "../components/SelectField";
 import { TareaFormModal } from "../components/TareaFormModal";
 import { equiposApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
@@ -112,7 +113,10 @@ export default function TableroUsuariosPage() {
             {columnas.map((col) => (
               <DroppableColumn key={columnId(col)} id={columnId(col)}>
                 <div className="flex items-center justify-between px-1 py-1">
-                  <span className="text-sm font-semibold text-foreground">{col.personaNombre}</span>
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                    {col.personaId ? <PersonaAvatar id={col.personaId} nombre={col.personaNombre} size="sm" /> : null}
+                    {col.personaNombre}
+                  </span>
                   <span className="text-xs text-muted">{formatHoras(col.cargaHoras)}</span>
                 </div>
                 {col.tareas.length === 0 ? <p className="px-1 text-xs text-muted">Sin tareas</p> : null}

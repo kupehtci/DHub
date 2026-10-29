@@ -60,7 +60,11 @@ export default function EquipoDetallePage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{equipo.nombre}</h1>
-          <p className="text-sm text-muted">Líder técnico: {equipo.liderTecnicoNombre ?? "Sin asignar"}</p>
+          <p className="flex items-center gap-1.5 text-sm text-muted">
+            Líder técnico:
+            {equipo.liderTecnicoId ? <PersonaAvatar id={equipo.liderTecnicoId} nombre={equipo.liderTecnicoNombre ?? ""} size="sm" /> : null}
+            {equipo.liderTecnicoNombre ?? "Sin asignar"}
+          </p>
         </div>
         <StatusChip color={equipo.estado === "Activo" ? "success" : "default"} label={ESTADO_EQUIPO_LABEL[equipo.estado]} />
       </div>

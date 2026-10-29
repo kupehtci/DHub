@@ -17,15 +17,10 @@ import { Link } from "react-router-dom";
 import { EventoFormModal } from "../components/EventoFormModal";
 import { IconChevronLeft, IconChevronRight, IconPlus } from "../components/Icons";
 import { StatusChip } from "../components/StatusChip";
+import { PrioridadChip } from "../components/PrioridadChip";
+import { PersonaAvatar } from "../components/PersonaAvatar";
 import { equiposApi, eventosApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
-import {
-  ESTADO_TAREA_LABEL,
-  formatHora,
-  PRIORIDAD_COLOR,
-  PRIORIDAD_LABEL,
-  TIPO_EVENTO_COLOR,
-  TIPO_EVENTO_LABEL,
-} from "../lib/format";
+import { ESTADO_TAREA_LABEL, formatHora, TIPO_EVENTO_COLOR, TIPO_EVENTO_LABEL } from "../lib/format";
 import type { Equipo, Evento, Persona, Proyecto, Tarea } from "../types";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -215,10 +210,12 @@ export default function CalendarioPage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-foreground">{t.titulo}</span>
-                    <StatusChip color={PRIORIDAD_COLOR[t.prioridad]} label={PRIORIDAD_LABEL[t.prioridad]} />
+                    <PrioridadChip prioridad={t.prioridad} />
                   </div>
-                  <span className="text-xs text-muted">
-                    {t.proyectoCodigo} · {t.responsableNombre ?? "Sin responsable"} · {ESTADO_TAREA_LABEL[t.estado]}
+                  <span className="flex items-center gap-1.5 text-xs text-muted">
+                    {t.proyectoCodigo} ·
+                    {t.responsableId ? <PersonaAvatar id={t.responsableId} nombre={t.responsableNombre ?? ""} size="sm" /> : null}
+                    {t.responsableNombre ?? "Sin responsable"} · {ESTADO_TAREA_LABEL[t.estado]}
                   </span>
                 </Link>
               ))
