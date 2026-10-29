@@ -26,8 +26,20 @@ public record TareaDto(
     string? ResponsableBloqueoNombre,
     DateOnly? FechaRevisionBloqueo,
     string? JiraTicketUrl,
-    string? JiraTicketClave
+    string? JiraTicketClave,
+    List<TareaRelacionadaDto> Relacionadas
 );
+
+// Resumen de una tarea relacionada, para mostrar en la tabla, el panel de edición y el mapa.
+public record TareaRelacionadaDto(
+    Guid Id,
+    string Titulo,
+    string ProyectoCodigo,
+    EstadoTarea Estado,
+    Prioridad Prioridad
+);
+
+public record TareaRelacionesUpdateDto(List<Guid> RelacionadasIds);
 
 public record TareaCreateDto(
     string Titulo,

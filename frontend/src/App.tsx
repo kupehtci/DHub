@@ -16,6 +16,8 @@ import SettingsPage from "./pages/SettingsPage";
 import TableroEquipoPage from "./pages/TableroEquipoPage";
 import TableroProyectoPage from "./pages/TableroProyectoPage";
 import TableroUsuariosPage from "./pages/TableroUsuariosPage";
+import TareasPage from "./pages/TareasPage";
+import TareasMapaPage from "./pages/TareasMapaPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -41,6 +43,8 @@ export default function App() {
         <Route path="/equipos/:id" element={<EquipoDetallePage />} />
         <Route path="/proyectos" element={<ProyectosPage />} />
         <Route path="/proyectos/:id" element={<ProyectoDetallePage />} />
+        <Route path="/tareas" element={<TareasPage />} />
+        <Route path="/tareas/mapa" element={<TareasMapaPage />} />
         <Route path="/tablero" element={<TableroEquipoPage />} />
         <Route path="/tablero-usuarios" element={<TableroUsuariosPage />} />
         <Route path="/tablero-proyecto" element={<TableroProyectoPage />} />

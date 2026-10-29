@@ -36,7 +36,8 @@ public static class Mappings
         t.ResponsableBloqueo?.Nombre,
         t.FechaRevisionBloqueo,
         t.JiraTicketUrl,
-        t.JiraTicketClave
+        t.JiraTicketClave,
+        new List<TareaRelacionadaDto>()
     );
 
     public static bool EsActiva(this Tarea t) =>

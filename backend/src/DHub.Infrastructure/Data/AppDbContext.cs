@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<Nota> Notas => Set<Nota>();
     public DbSet<Evento> Eventos => Set<Evento>();
     public DbSet<CuentaUsuario> CuentasUsuario => Set<CuentaUsuario>();
+    public DbSet<TareaRelacion> TareasRelacionadas => Set<TareaRelacion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

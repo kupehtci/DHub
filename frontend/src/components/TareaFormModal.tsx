@@ -4,6 +4,7 @@ import { notasApi, tareasApi } from "../lib/api";
 import { PRIORIDAD_LABEL, TIPO_TAREA_LABEL } from "../lib/format";
 import { ESTADOS_TAREA, type EstadoTarea, type Nota, type Persona, type Prioridad, type Proyecto, type Tarea, type TipoTarea } from "../types";
 import { FormModal } from "./FormModal";
+import { MultiSelectField } from "./MultiSelectField";
 import { SelectField } from "./SelectField";
 
 const TIPOS: TipoTarea[] = ["HistoriaUsuario", "Bug", "Tarea", "Mejora", "Soporte"];
@@ -80,6 +81,9 @@ export function TareaFormModal({
   const [nuevoComentario, setNuevoComentario] = useState("");
   const [autorComentario, setAutorComentario] = useState<string | null>(null);
 
+  const [todasLasTareas, setTodasLasTareas] = useState<Tarea[]>([]);
+  const [relacionadasIds, setRelacionadasIds] = useState<string[]>([]);
+
   const cargarComentarios = (tareaId: string) => {
     notasApi.listar({ tareaId }).then((r) => setComentarios(r.data.filter((n) => n.tipo === "Comentario")));
   };
@@ -105,13 +109,16 @@ export function TareaFormModal({
         jiraTicketClave: tarea.jiraTicketClave ?? "",
         jiraTicketUrl: tarea.jiraTicketUrl ?? "",
       });
+      setRelacionadasIds(tarea.relacionadas.map((r) => r.id));
       cargarComentarios(tarea.id);
     } else {
       setForm(emptyForm(defaultProyectoId));
       setComentarios([]);
+      setRelacionadasIds([]);
     }
     setNuevoComentario("");
     setError(null);
+    tareasApi.listar().then((r) => setTodasLasTareas(r.data));
   }, [isOpen, tarea, defaultProyectoId]);
 
   const isBloqueada = form.estado === "Bloqueada";
@@ -147,10 +154,15 @@ export function TareaFormModal({
         jiraTicketClave: form.jiraTicketClave || null,
         jiraTicketUrl: form.jiraTicketUrl || null,
       };
+      let tareaId = tarea?.id;
       if (tarea) {
         await tareasApi.actualizar(tarea.id, payload);
       } else {
-        await tareasApi.crear(payload);
+        const { data } = await tareasApi.crear(payload);
+        tareaId = data.id;
+      }
+      if (tareaId) {
+        await tareasApi.actualizarRelaciones(tareaId, relacionadasIds);
       }
       onOpenChange(false);
       onSaved();
@@ -179,6 +191,7 @@ export function TareaFormModal({
       isOpen={isOpen}
       onOpenChange={onOpenChange}
       size="lg"
+      dialogClassName="sm:max-w-2xl"
       title={tarea ? "Editar tarea" : "Nueva tarea"}
       footer={
         <>
@@ -242,6 +255,16 @@ export function TareaFormModal({
           <Description>Enlace manual. La integración automática con la API de Jira llegará más adelante.</Description>
         </TextField>
       </div>
+
+      <MultiSelectField
+        label="Tareas relacionadas"
+        values={relacionadasIds}
+        onChange={setRelacionadasIds}
+        options={todasLasTareas
+          .filter((t) => t.id !== tarea?.id)
+          .map((t) => ({ id: t.id, label: `${t.proyectoCodigo} · ${t.titulo}` }))}
+        placeholder="Sin tareas relacionadas"
+      />
 
       {isBloqueada ? (
         <div className="flex flex-col gap-4 rounded-xl border border-danger/30 bg-danger-soft/30 p-3">

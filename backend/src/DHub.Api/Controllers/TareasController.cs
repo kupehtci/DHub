@@ -21,6 +21,25 @@ public class TareasController : ControllerBase
         .Include(t => t.Responsable)
         .Include(t => t.ResponsableBloqueo);
 
+    // Carga, en una sola consulta, las tareas relacionadas de todas las tareas indicadas.
+    private async Task<Dictionary<Guid, List<TareaRelacionadaDto>>> CargarRelacionesAsync(IEnumerable<Guid> tareaIds)
+    {
+        var ids = tareaIds.ToList();
+        var relaciones = await _db.TareasRelacionadas
+            .Where(r => ids.Contains(r.TareaOrigenId))
+            .Include(r => r.TareaDestino!).ThenInclude(t => t.Proyecto)
+            .ToListAsync();
+
+        return relaciones
+            .GroupBy(r => r.TareaOrigenId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(r => new TareaRelacionadaDto(
+                    r.TareaDestino!.Id, r.TareaDestino.Titulo, r.TareaDestino.Proyecto?.Codigo ?? "",
+                    r.TareaDestino.Estado, r.TareaDestino.Prioridad))
+                    .OrderBy(t => t.Titulo).ToList());
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<TareaDto>>> Listar(
         [FromQuery] Guid? proyectoId, [FromQuery] Guid? equipoId, [FromQuery] Guid? responsableId,
@@ -41,7 +60,8 @@ public class TareasController : ControllerBase
         if (vencida.HasValue)
             tareas = tareas.Where(t => t.EsVencida() == vencida.Value).ToList();
 
-        return tareas.Select(t => t.ToDto()).ToList();
+        var relaciones = await CargarRelacionesAsync(tareas.Select(t => t.Id));
+        return tareas.Select(t => t.ToDto() with { Relacionadas = relaciones.GetValueOrDefault(t.Id, new()) }).ToList();
     }
 
     [HttpGet("{id:guid}")]
@@ -49,7 +69,32 @@ public class TareasController : ControllerBase
     {
         var tarea = await BaseQuery().FirstOrDefaultAsync(t => t.Id == id);
         if (tarea is null) return NotFound();
-        return tarea.ToDto();
+        var relaciones = await CargarRelacionesAsync(new[] { id });
+        return tarea.ToDto() with { Relacionadas = relaciones.GetValueOrDefault(id, new()) };
+    }
+
+    [HttpPut("{id:guid}/relaciones")]
+    public async Task<IActionResult> ActualizarRelaciones(Guid id, TareaRelacionesUpdateDto dto)
+    {
+        var tarea = await _db.Tareas.FindAsync(id);
+        if (tarea is null) return NotFound();
+
+        var nuevosIds = dto.RelacionadasIds.Where(otroId => otroId != id).Distinct().ToList();
+        var validos = await _db.Tareas.Where(t => nuevosIds.Contains(t.Id)).Select(t => t.Id).ToListAsync();
+
+        var actuales = await _db.TareasRelacionadas
+            .Where(r => r.TareaOrigenId == id || r.TareaDestinoId == id)
+            .ToListAsync();
+        _db.TareasRelacionadas.RemoveRange(actuales);
+
+        foreach (var otroId in validos)
+        {
+            _db.TareasRelacionadas.Add(new TareaRelacion { TareaOrigenId = id, TareaDestinoId = otroId });
+            _db.TareasRelacionadas.Add(new TareaRelacion { TareaOrigenId = otroId, TareaDestinoId = id });
+        }
+
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 
     private static bool? ValidarBloqueo(EstadoTarea estado, string? motivo, Guid? responsableBloqueoId, DateOnly? fechaRevision) =>
@@ -151,6 +196,10 @@ public class TareasController : ControllerBase
     {
         var tarea = await _db.Tareas.FindAsync(id);
         if (tarea is null) return NotFound();
+        var relaciones = await _db.TareasRelacionadas
+            .Where(r => r.TareaOrigenId == id || r.TareaDestinoId == id)
+            .ToListAsync();
+        _db.TareasRelacionadas.RemoveRange(relaciones);
         _db.Tareas.Remove(tarea);
         await _db.SaveChangesAsync();
         return NoContent();

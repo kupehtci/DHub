@@ -105,6 +105,14 @@ export interface ProyectoDetalle extends Omit<Proyecto, "tareasTotal" | "tareasV
   notas: Nota[];
 }
 
+export interface TareaRelacionada {
+  id: string;
+  titulo: string;
+  proyectoCodigo: string;
+  estado: EstadoTarea;
+  prioridad: Prioridad;
+}
+
 export interface Tarea {
   id: string;
   titulo: string;
@@ -130,6 +138,7 @@ export interface Tarea {
   fechaRevisionBloqueo: string | null;
   jiraTicketUrl: string | null;
   jiraTicketClave: string | null;
+  relacionadas: TareaRelacionada[];
 }
 
 export interface Hito {

@@ -137,3 +137,23 @@ export const IconDownload = (p: SVGProps<SVGSVGElement>) => (
     <path d="M5 21h14" />
   </svg>
 );
+
+export const IconListTasks = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M9 6h11M9 12h11M9 18h11" />
+    <path d="M4 6l1 1 2-2" />
+    <path d="M4 12l1 1 2-2" />
+    <path d="M4 18l1 1 2-2" />
+  </svg>
+);
+
+export const IconGraph = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <circle cx="6" cy="6" r="2.4" />
+    <circle cx="18" cy="7" r="2.4" />
+    <circle cx="12" cy="13" r="2.4" />
+    <circle cx="6" cy="19" r="2.4" />
+    <circle cx="18" cy="18" r="2.4" />
+    <path d="M7.7 7.6l2.9 4M15.9 8.1l-2.5 3.6M7.5 17.5l3-3M14 14.5l2.5 2.3" />
+  </svg>
+);

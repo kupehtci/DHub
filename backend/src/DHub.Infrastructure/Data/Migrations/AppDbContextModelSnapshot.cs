@@ -416,6 +416,21 @@ namespace DHub.Infrastructure.Data.Migrations
                     b.ToTable("Tareas", (string)null);
                 });
 
+            modelBuilder.Entity("DHub.Domain.Entities.TareaRelacion", b =>
+                {
+                    b.Property<Guid>("TareaOrigenId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TareaDestinoId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TareaOrigenId", "TareaDestinoId");
+
+                    b.HasIndex("TareaDestinoId");
+
+                    b.ToTable("TareasRelacionadas", (string)null);
+                });
+
             modelBuilder.Entity("EquipoPersona", b =>
                 {
                     b.Property<Guid>("EquiposId")
@@ -572,6 +587,25 @@ namespace DHub.Infrastructure.Data.Migrations
                     b.Navigation("Responsable");
 
                     b.Navigation("ResponsableBloqueo");
+                });
+
+            modelBuilder.Entity("DHub.Domain.Entities.TareaRelacion", b =>
+                {
+                    b.HasOne("DHub.Domain.Entities.Tarea", "TareaDestino")
+                        .WithMany()
+                        .HasForeignKey("TareaDestinoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DHub.Domain.Entities.Tarea", "TareaOrigen")
+                        .WithMany()
+                        .HasForeignKey("TareaOrigenId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("TareaDestino");
+
+                    b.Navigation("TareaOrigen");
                 });
 
             modelBuilder.Entity("EquipoPersona", b =>
