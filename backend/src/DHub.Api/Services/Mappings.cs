@@ -145,6 +145,16 @@ public static class Mappings
         e.Persona?.Nombre
     );
 
+    public static VacacionDto ToDto(this Vacacion v) => new(
+        v.Id,
+        v.PersonaId,
+        v.Persona?.Nombre ?? string.Empty,
+        v.FechaInicio,
+        v.FechaFin,
+        v.FechaFin.DayNumber - v.FechaInicio.DayNumber + 1,
+        v.Comentario
+    );
+
     public static NotaDto ToDto(this Nota n) => new(
         n.Id,
         n.Fecha,

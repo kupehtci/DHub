@@ -18,6 +18,7 @@ import TableroProyectoPage from "./pages/TableroProyectoPage";
 import TableroUsuariosPage from "./pages/TableroUsuariosPage";
 import TareasPage from "./pages/TareasPage";
 import TareasMapaPage from "./pages/TareasMapaPage";
+import VacacionesPage from "./pages/VacacionesPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="/tablero-proyecto" element={<TableroProyectoPage />} />
         <Route path="/riesgos" element={<RiesgosPage />} />
         <Route path="/calendario" element={<CalendarioPage />} />
+        <Route path="/vacaciones" element={<VacacionesPage />} />
         <Route path="/analiticas" element={<AnaliticasPage />} />
         <Route path="/configuracion" element={<SettingsPage />} />
       </Route>

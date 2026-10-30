@@ -14,6 +14,7 @@ import type {
   Riesgo,
   TableroPorPersona,
   Tarea,
+  Vacacion,
 } from "../types";
 
 // En desarrollo apunta directamente a la API en localhost; en producción (Docker)
@@ -194,4 +195,24 @@ export const eventosApi = {
   crear: (data: Partial<Evento>) => api.post<Evento>("/api/eventos", data),
   actualizar: (id: string, data: Partial<Evento>) => api.put(`/api/eventos/${id}`, data),
   eliminar: (id: string) => api.delete(`/api/eventos/${id}`),
+};
+
+export interface VacacionFiltros {
+  personaId?: string;
+  equipoId?: string;
+  desde?: string;
+  hasta?: string;
+}
+
+export interface VacacionPayload {
+  fechaInicio: string;
+  fechaFin: string;
+  comentario: string | null;
+}
+
+export const vacacionesApi = {
+  listar: (f: VacacionFiltros = {}) => api.get<Vacacion[]>(`/api/vacaciones${qs(f)}`),
+  crear: (data: VacacionPayload & { personaId: string }) => api.post<Vacacion>("/api/vacaciones", data),
+  actualizar: (id: string, data: VacacionPayload) => api.put(`/api/vacaciones/${id}`, data),
+  eliminar: (id: string) => api.delete(`/api/vacaciones/${id}`),
 };
