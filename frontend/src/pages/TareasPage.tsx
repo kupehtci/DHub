@@ -2,6 +2,7 @@ import { Button, Input, Label, TextField } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { IconDownload, IconPlus } from "../components/Icons";
+import { JiraLink } from "../components/JiraLink";
 import { PersonaAvatar } from "../components/PersonaAvatar";
 import { PrioridadChip } from "../components/PrioridadChip";
 import { SelectField } from "../components/SelectField";
@@ -150,7 +151,13 @@ export default function TareasPage() {
                 >
                   <td className="px-4 py-3">
                     <p className="max-w-[260px] truncate font-medium text-foreground">{t.titulo}</p>
-                    {t.jiraTicketClave ? <p className="text-xs text-muted">{t.jiraTicketClave}</p> : null}
+                    {t.jiraTicketUrl ? (
+                      <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                        <JiraLink url={t.jiraTicketUrl} label={t.jiraTicketClave ?? "Jira"} />
+                      </div>
+                    ) : t.jiraTicketClave ? (
+                      <p className="text-xs text-muted">{t.jiraTicketClave}</p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-muted">{t.proyectoCodigo}</td>
                   <td className="px-4 py-3">

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FormModal } from "../components/FormModal";
-import { IconDownload, IconPlus } from "../components/Icons";
+import { IconCalendar, IconDownload, IconPlus, IconTeam, IconUsers } from "../components/Icons";
 import { SelectField } from "../components/SelectField";
 import { StatusChip } from "../components/StatusChip";
 import { PrioridadChip } from "../components/PrioridadChip";
@@ -202,14 +202,24 @@ export default function ProyectosPage() {
                 </div>
                 <PrioridadChip prioridad={p.prioridad} />
               </div>
-              <p className="text-sm text-muted">{p.clienteArea}</p>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-                <span>{p.equipoNombre ?? "Sin equipo"}</span>
-                <span className="flex items-center gap-1.5">
-                  · {p.responsableId ? <PersonaAvatar id={p.responsableId} nombre={p.responsableNombre ?? ""} size="sm" /> : null}
-                  {p.responsableNombre ?? "Sin responsable"}
+              <p className="truncate text-sm text-muted">{p.clienteArea}</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-muted">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <IconTeam width={14} height={14} className="shrink-0 opacity-60" />
+                  <span className="truncate">{p.equipoNombre ?? "Sin equipo"}</span>
                 </span>
-                <span>· {formatFecha(p.fechaInicio)} → {formatFecha(p.fechaFin)}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  {p.responsableId ? (
+                    <PersonaAvatar id={p.responsableId} nombre={p.responsableNombre ?? ""} size="sm" />
+                  ) : (
+                    <IconUsers width={14} height={14} className="shrink-0 opacity-60" />
+                  )}
+                  <span className="truncate">{p.responsableNombre ?? "Sin responsable"}</span>
+                </span>
+                <span className="col-span-2 flex items-center gap-1.5">
+                  <IconCalendar width={14} height={14} className="shrink-0 opacity-60" />
+                  {formatFecha(p.fechaInicio)} → {formatFecha(p.fechaFin)}
+                </span>
               </div>
               <div className="flex items-center gap-2 pt-1">
                 <StatusChip color={ESTADO_PROYECTO_COLOR[p.estado]} label={ESTADO_PROYECTO_LABEL[p.estado]} />

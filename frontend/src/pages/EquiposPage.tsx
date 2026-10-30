@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FormModal } from "../components/FormModal";
-import { IconPlus } from "../components/Icons";
+import { IconFolder, IconPlus, IconUsers } from "../components/Icons";
 import { PersonaAvatar } from "../components/PersonaAvatar";
 import { SelectField } from "../components/SelectField";
 import { StatusChip } from "../components/StatusChip";
@@ -107,13 +107,15 @@ export default function EquiposPage() {
                 </div>
                 <StatusChip color={e.estado === "Activo" ? "success" : "default"} label={ESTADO_EQUIPO_LABEL[e.estado]} />
               </div>
-              {e.descripcion ? <p className="text-sm text-muted">{e.descripcion}</p> : null}
-              <div className="flex items-center gap-4 text-sm">
-                <span>
+              {e.descripcion ? <p className="truncate text-sm text-muted">{e.descripcion}</p> : null}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+                <span className="flex items-center gap-1.5">
+                  <IconUsers width={14} height={14} className="shrink-0 opacity-60" />
                   <strong>{e.numeroMiembros}</strong> miembros
                 </span>
-                <span>
-                  <strong>{e.proyectosActivos}</strong> proyectos activos
+                <span className="flex items-center gap-1.5">
+                  <IconFolder width={14} height={14} className="shrink-0 opacity-60" />
+                  <strong>{e.proyectosActivos}</strong> proyectos
                 </span>
               </div>
               <div className="mt-auto flex justify-end gap-2 pt-2">

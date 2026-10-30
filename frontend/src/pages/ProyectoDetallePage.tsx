@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FormModal } from "../components/FormModal";
-import { IconPlus } from "../components/Icons";
+import { IconCalendar, IconPlus, IconTeam, IconUsers } from "../components/Icons";
+import { JiraLink } from "../components/JiraLink";
 import { RiesgoFormModal } from "../components/RiesgoFormModal";
 import { SelectField } from "../components/SelectField";
 import { StatusChip } from "../components/StatusChip";
@@ -114,16 +115,28 @@ export default function ProyectoDetallePage() {
           <p className="text-sm text-muted">
             {proyecto.sistemaInformacion} · {proyecto.clienteArea}
           </p>
-          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted">
-            {proyecto.equipoNombre ?? "Sin equipo"} · Responsable:
-            {proyecto.responsableId ? <PersonaAvatar id={proyecto.responsableId} nombre={proyecto.responsableNombre ?? ""} size="sm" /> : null}
-            {proyecto.responsableNombre ?? "Sin responsable"} ·{" "}
-            {formatFecha(proyecto.fechaInicio)} → {formatFecha(proyecto.fechaFin)}
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted">
+            <span className="flex items-center gap-1.5">
+              <IconTeam width={15} height={15} className="shrink-0 opacity-60" />
+              {proyecto.equipoNombre ?? "Sin equipo"}
+            </span>
+            <span className="flex items-center gap-1.5">
+              {proyecto.responsableId ? (
+                <PersonaAvatar id={proyecto.responsableId} nombre={proyecto.responsableNombre ?? ""} size="sm" />
+              ) : (
+                <IconUsers width={15} height={15} className="shrink-0 opacity-60" />
+              )}
+              {proyecto.responsableNombre ?? "Sin responsable"}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <IconCalendar width={15} height={15} className="shrink-0 opacity-60" />
+              {formatFecha(proyecto.fechaInicio)} → {formatFecha(proyecto.fechaFin)}
+            </span>
+          </div>
           {proyecto.jiraProyectoUrl ? (
-            <a className="text-xs text-link hover:underline" href={proyecto.jiraProyectoUrl} rel="noreferrer" target="_blank">
-              Ver tablero en Jira{proyecto.jiraClaveProyecto ? ` (${proyecto.jiraClaveProyecto})` : ""} →
-            </a>
+            <div className="mt-2">
+              <JiraLink url={proyecto.jiraProyectoUrl} label={proyecto.jiraClaveProyecto ? `Tablero ${proyecto.jiraClaveProyecto}` : "Ver tablero en Jira"} />
+            </div>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
@@ -199,15 +212,12 @@ export default function ProyectoDetallePage() {
                     <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
                       {t.responsableId ? <PersonaAvatar id={t.responsableId} nombre={t.responsableNombre ?? ""} size="sm" /> : null}
                       {t.responsableNombre ?? "Sin responsable"} · {formatHoras(t.estimacionHoras)} · objetivo {formatFecha(t.fechaObjetivo)}
-                      {t.jiraTicketUrl ? (
-                        <>
-                          {" · "}
-                          <a className="text-link hover:underline" href={t.jiraTicketUrl} rel="noreferrer" target="_blank">
-                            {t.jiraTicketClave ?? "Jira"} ↗
-                          </a>
-                        </>
-                      ) : null}
                     </p>
+                    {t.jiraTicketUrl ? (
+                      <div className="mt-1">
+                        <JiraLink url={t.jiraTicketUrl} label={t.jiraTicketClave ?? "Jira"} />
+                      </div>
+                    ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <PrioridadChip prioridad={t.prioridad} />

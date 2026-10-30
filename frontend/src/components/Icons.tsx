@@ -147,6 +147,15 @@ export const IconListTasks = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+// Marca simplificada al estilo Jira (tres rombos superpuestos), en el azul de marca.
+export const IconJira = ({ width = 13, height = 13, ...p }: SVGProps<SVGSVGElement>) => (
+  <svg width={width} height={height} viewBox="0 0 24 24" aria-hidden="true" {...p}>
+    <rect x="9" y="1" width="12" height="12" rx="3" transform="rotate(45 15 7)" fill="#2684FF" />
+    <rect x="6" y="4" width="12" height="12" rx="3" transform="rotate(45 12 10)" fill="#2684FF" opacity="0.75" />
+    <rect x="3" y="7" width="12" height="12" rx="3" transform="rotate(45 9 13)" fill="#2684FF" opacity="0.5" />
+  </svg>
+);
+
 export const IconGraph = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
     <circle cx="6" cy="6" r="2.4" />
