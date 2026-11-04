@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconSun,
   IconTeam,
+  IconUmbrella,
   IconUsers,
   IconWarning,
 } from "../Icons";
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { to: "/tablero-usuarios", label: "Tablero por usuario", icon: IconPerson },
   { to: "/tablero-proyecto", label: "Tablero por proyecto", icon: IconFolder },
   { to: "/calendario", label: "Calendario", icon: IconCalendar },
+  { to: "/vacaciones", label: "Vacaciones", icon: IconUmbrella },
   { to: "/analiticas", label: "Analíticas", icon: IconChartBar },
   { to: "/riesgos", label: "Riesgos y bloqueos", icon: IconWarning },
   { to: "/configuracion", label: "Configuración", icon: IconSettings },

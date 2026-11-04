@@ -156,6 +156,14 @@ export const IconJira = ({ width = 13, height = 13, ...p }: SVGProps<SVGSVGEleme
   </svg>
 );
 
+export const IconUmbrella = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M12 3a8 8 0 0 1 8 8H4a8 8 0 0 1 8-8Z" />
+    <path d="M12 3v1.5" />
+    <path d="M12 11v8a2 2 0 0 1-2 2" />
+  </svg>
+);
+
 export const IconGraph = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
     <circle cx="6" cy="6" r="2.4" />

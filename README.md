@@ -43,8 +43,9 @@ DHub/
 ## Modelo de datos (resumen)
 
 `Persona`, `Equipo`, `Proyecto`, `Tarea`, `Hito`, `Riesgo` (riesgos y bloqueos), `Evento`
-(reuniones/entregas de calendario) y `Nota` (registro de actividad y comentarios,
-asociable a proyecto, tarea o persona). El detalle completo de columnas y relaciones
+(reuniones/entregas de calendario), `Vacacion` (periodo de vacaciones de una persona) y
+`Nota` (registro de actividad y comentarios, asociable a proyecto, tarea o persona).
+El detalle completo de columnas y relaciones
 está en las entidades de `backend/src/DHub.Domain/Entities` y en las configuraciones de
 EF Core (`backend/src/DHub.Infrastructure/Data/Configurations`).
 
@@ -100,6 +101,9 @@ Reglas de negocio aplicadas en el backend:
    estado y fecha de revisión; alta/edición y exportación CSV.
 10. **Configuración**: tema claro/oscuro/sistema y **Mi cuenta** (nombre, usuario,
     email y cambio de contraseña del coordinador que usa la aplicación).
+11. **Vacaciones**: vista mensual tipo "quién está fuera" con una fila por persona
+    (filtrable por equipo) y una columna por día del mes; pulsar un día abre el
+    alta o la edición del periodo de vacaciones de esa persona.
 
 ## Autenticación
 
@@ -206,7 +210,8 @@ para añadir/quitar miembros —una persona puede estar en varios equipos— y
 `GET /api/equipos/{id}/tablero-usuarios` para el tablero por persona), `/api/proyectos`
 (con `/hitos`), `/api/tareas` (con `PATCH /{id}/estado` para el Kanban y comentarios vía
 `/api/notas?tareaId=`), `/api/riesgos`, `/api/notas`, `/api/eventos` (calendario, con
-filtro `desde`/`hasta`), `/api/dashboard` y `/api/auth` (`POST /login`, `GET /me`,
+filtro `desde`/`hasta`), `/api/vacaciones` (filtros `personaId`/`equipoId`/`desde`/`hasta`),
+`/api/dashboard` y `/api/auth` (`POST /login`, `GET /me`,
 `PUT /perfil`, `PUT /password`). Los listados principales exponen un endpoint
 `/export` adicional que devuelve CSV.
 

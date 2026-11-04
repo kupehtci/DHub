@@ -431,6 +431,32 @@ namespace DHub.Infrastructure.Data.Migrations
                     b.ToTable("TareasRelacionadas", (string)null);
                 });
 
+            modelBuilder.Entity("DHub.Domain.Entities.Vacacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comentario")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateOnly>("FechaFin")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("FechaInicio")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("PersonaId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonaId");
+
+                    b.ToTable("Vacaciones", (string)null);
+                });
+
             modelBuilder.Entity("EquipoPersona", b =>
                 {
                     b.Property<Guid>("EquiposId")
@@ -606,6 +632,17 @@ namespace DHub.Infrastructure.Data.Migrations
                     b.Navigation("TareaDestino");
 
                     b.Navigation("TareaOrigen");
+                });
+
+            modelBuilder.Entity("DHub.Domain.Entities.Vacacion", b =>
+                {
+                    b.HasOne("DHub.Domain.Entities.Persona", "Persona")
+                        .WithMany()
+                        .HasForeignKey("PersonaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Persona");
                 });
 
             modelBuilder.Entity("EquipoPersona", b =>

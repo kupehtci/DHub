@@ -204,6 +204,16 @@ export interface Evento {
   personaNombre: string | null;
 }
 
+export interface Vacacion {
+  id: string;
+  personaId: string;
+  personaNombre: string;
+  fechaInicio: string;
+  fechaFin: string;
+  dias: number;
+  comentario: string | null;
+}
+
 export interface Dashboard {
   proyectosActivos: number;
   proyectosEnRiesgo: number;

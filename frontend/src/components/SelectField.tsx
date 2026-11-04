@@ -13,6 +13,7 @@ export function SelectField({
   placeholder = "Selecciona una opción",
   emptyOption,
   isRequired,
+  isDisabled,
   fullWidth = true,
 }: {
   label: string;
@@ -22,12 +23,14 @@ export function SelectField({
   placeholder?: string;
   emptyOption?: string;
   isRequired?: boolean;
+  isDisabled?: boolean;
   fullWidth?: boolean;
 }) {
   return (
     <Select
       fullWidth={fullWidth}
       isRequired={isRequired}
+      isDisabled={isDisabled}
       placeholder={placeholder}
       value={value ?? null}
       onChange={(key) => {
