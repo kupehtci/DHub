@@ -174,3 +174,12 @@ export const IconGraph = (p: SVGProps<SVGSVGElement>) => (
     <path d="M7.7 7.6l2.9 4M15.9 8.1l-2.5 3.6M7.5 17.5l3-3M14 14.5l2.5 2.3" />
   </svg>
 );
+
+export const IconGantt = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M3 4v16h18" />
+    <rect x="6" y="6" width="7" height="3" rx="1" />
+    <rect x="10" y="11" width="8" height="3" rx="1" />
+    <rect x="8" y="16" width="5" height="2.5" rx="1" />
+  </svg>
+);

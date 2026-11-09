@@ -5,7 +5,7 @@ import { jiraApi, notasApi, tareasApi } from "../lib/api";
 import { PRIORIDAD_LABEL, TIPO_TAREA_LABEL } from "../lib/format";
 import { ESTADOS_TAREA, type EstadoTarea, type JiraTicketInfo, type Nota, type Persona, type Prioridad, type Proyecto, type Tarea, type TipoTarea } from "../types";
 import { FormModal } from "./FormModal";
-import { MultiSelectField } from "./MultiSelectField";
+import { SearchableMultiSelect } from "./SearchableMultiSelect";
 import { SelectField } from "./SelectField";
 
 const TIPOS: TipoTarea[] = ["HistoriaUsuario", "Bug", "Tarea", "Mejora", "Soporte"];
@@ -303,14 +303,15 @@ export function TareaFormModal({
         ) : null}
       </div>
 
-      <MultiSelectField
+      <SearchableMultiSelect
         label="Tareas relacionadas"
         values={relacionadasIds}
         onChange={setRelacionadasIds}
         options={todasLasTareas
           .filter((t) => t.id !== tarea?.id)
           .map((t) => ({ id: t.id, label: `${t.proyectoCodigo} · ${t.titulo}` }))}
-        placeholder="Sin tareas relacionadas"
+        placeholder="Escribe para buscar por código o título…"
+        emptyText="No hay tareas que coincidan"
       />
 
       {isBloqueada ? (
