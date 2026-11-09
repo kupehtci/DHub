@@ -6,6 +6,7 @@ import { TareaCard } from "../components/kanban/TareaCard";
 import { PersonaAvatar } from "../components/PersonaAvatar";
 import { SelectField } from "../components/SelectField";
 import { TareaFormModal } from "../components/TareaFormModal";
+import { useJiraTickets } from "../hooks/useJiraTickets";
 import { equiposApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
 import { formatHoras } from "../lib/format";
 import type { Equipo, Persona, Proyecto, TableroPorPersona, Tarea } from "../types";
@@ -42,6 +43,8 @@ export default function TableroUsuariosPage() {
   };
 
   useEffect(cargar, [equipoId]);
+
+  const jiraPorClave = useJiraTickets(columnas.flatMap((c) => c.tareas.map((t) => t.jiraTicketClave)));
 
   const columnId = (p: TableroPorPersona) => p.personaId ?? SIN_RESPONSABLE;
 
@@ -122,7 +125,12 @@ export default function TableroUsuariosPage() {
                 {col.tareas.length === 0 ? <p className="px-1 text-xs text-muted">Sin tareas</p> : null}
                 {col.tareas.map((t) => (
                   <DraggableCard key={t.id} id={t.id} columnId={columnId(col)}>
-                    <TareaCard tarea={t} onClick={() => setEditTarea(t)} subtitle={t.proyectoCodigo} />
+                    <TareaCard
+                      tarea={t}
+                      onClick={() => setEditTarea(t)}
+                      subtitle={t.proyectoCodigo}
+                      jiraInfo={t.jiraTicketClave ? jiraPorClave.get(t.jiraTicketClave) : undefined}
+                    />
                   </DraggableCard>
                 ))}
               </DroppableColumn>

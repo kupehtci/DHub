@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using DHub.Api.Services;
 using DHub.Domain.Entities;
 using DHub.Infrastructure.Data;
 using DHub.Infrastructure.Data.Seed;
@@ -13,6 +14,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? "Host=localhost;Port=5432;Database=dhub;Username=dhub;Password=dhub";
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+builder.Services.AddHttpClient<JiraClient>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -63,6 +65,9 @@ using (var scope = app.Services.CreateScope())
     var nombrePorDefecto = builder.Configuration["Auth:Nombre"] ?? "Coordinador Técnico";
     var hashPorDefecto = hasher.HashPassword(null!, passwordPorDefecto);
     await AccountSeeder.EnsureDefaultAsync(db, usuarioPorDefecto, nombrePorDefecto, hashPorDefecto);
+
+    // Catálogo de espacios Jira propios de la organización: se inserta una sola vez.
+    await JiraEspacioSeeder.EnsureSeededAsync(db);
 
     // Los datos de ejemplo solo se insertan si la base de datos está vacía (nunca
     // sobrescriben ni repiten datos ya existentes) y pueden desactivarse del todo

@@ -8,6 +8,7 @@ import { PrioridadChip } from "../components/PrioridadChip";
 import { SelectField } from "../components/SelectField";
 import { StatusChip } from "../components/StatusChip";
 import { TareaFormModal } from "../components/TareaFormModal";
+import { useJiraTickets } from "../hooks/useJiraTickets";
 import { equiposApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
 import { ESTADO_TAREA_LABEL, formatFecha } from "../lib/format";
 import { ESTADOS_TAREA, type Equipo, type Persona, type Prioridad, type Proyecto, type Tarea } from "../types";
@@ -59,6 +60,8 @@ export default function TareasPage() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, filtroProyecto, filtroEquipo, filtroResponsable, filtroEstado, filtroPrioridad]);
+
+  const jiraPorClave = useJiraTickets(tareas.map((t) => t.jiraTicketClave));
 
   const proyectoOptions = useMemo(() => proyectos.map((p) => ({ id: p.id, label: `${p.codigo} · ${p.nombre}` })), [proyectos]);
   const equipoOptions = useMemo(() => equipos.map((e) => ({ id: e.id, label: e.nombre })), [equipos]);
@@ -152,8 +155,11 @@ export default function TareasPage() {
                   <td className="px-4 py-3">
                     <p className="max-w-[260px] truncate font-medium text-foreground">{t.titulo}</p>
                     {t.jiraTicketUrl ? (
-                      <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                      <div className="mt-1 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <JiraLink url={t.jiraTicketUrl} label={t.jiraTicketClave ?? "Jira"} />
+                        {t.jiraTicketClave && jiraPorClave.get(t.jiraTicketClave) ? (
+                          <span className="text-xs text-muted">{jiraPorClave.get(t.jiraTicketClave)!.estado}</span>
+                        ) : null}
                       </div>
                     ) : t.jiraTicketClave ? (
                       <p className="text-xs text-muted">{t.jiraTicketClave}</p>

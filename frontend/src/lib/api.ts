@@ -12,6 +12,9 @@ import type {
   Proyecto,
   ProyectoDetalle,
   Riesgo,
+  JiraConfiguracion,
+  JiraEspacio,
+  JiraTicketInfo,
   TableroPorPersona,
   Tarea,
   Vacacion,
@@ -60,6 +63,19 @@ export const authApi = {
     api.put<Cuenta>("/api/auth/perfil", data),
   cambiarPassword: (data: { passwordActual: string; passwordNueva: string }) =>
     api.put("/api/auth/password", data),
+};
+
+export const jiraApi = {
+  espacios: () => api.get<JiraEspacio[]>("/api/jira/espacios"),
+  configuracion: () => api.get<JiraConfiguracion>("/api/jira/configuracion"),
+  actualizarConfiguracion: (data: { baseUrl: string; email: string; apiToken: string | null }) =>
+    api.put<JiraConfiguracion>("/api/jira/configuracion", data),
+  probarConexion: (data: { baseUrl: string; email: string; apiToken: string }) =>
+    api.post<{ ok: boolean; mensaje: string }>("/api/jira/configuracion/probar", data),
+  ticket: (clave: string) => api.get<JiraTicketInfo>(`/api/jira/ticket/${encodeURIComponent(clave)}`),
+  ticketsLote: (claves: string[]) => api.post<JiraTicketInfo[]>("/api/jira/tickets/lote", { claves }),
+  ticketsProyecto: (claveProyecto: string, soloAbiertos = true) =>
+    api.get<JiraTicketInfo[]>(`/api/jira/proyectos/${encodeURIComponent(claveProyecto)}/tickets${qs({ soloAbiertos })}`),
 };
 
 export interface PersonaFiltros {
