@@ -164,6 +164,8 @@ export const tareasApi = {
   crear: (data: Partial<Tarea>) => api.post<Tarea>("/api/tareas", data),
   actualizar: (id: string, data: Partial<Tarea>) => api.put(`/api/tareas/${id}`, data),
   cambiarEstado: (id: string, estado: string) => api.patch(`/api/tareas/${id}/estado`, { estado }),
+  cambiarFechas: (id: string, fechaInicio: string | null, fechaObjetivo: string | null) =>
+    api.patch(`/api/tareas/${id}/fechas`, { fechaInicio, fechaObjetivo }),
   actualizarRelaciones: (id: string, relacionadasIds: string[]) => api.put(`/api/tareas/${id}/relaciones`, { relacionadasIds }),
   eliminar: (id: string) => api.delete(`/api/tareas/${id}`),
   exportUrl: (f: TareaFiltros = {}) => `${api.defaults.baseURL}/api/tareas/export${qs(f)}`,

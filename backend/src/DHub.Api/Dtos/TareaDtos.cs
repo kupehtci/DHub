@@ -80,3 +80,6 @@ public record TareaUpdateDto(
 );
 
 public record TareaEstadoUpdateDto(EstadoTarea Estado);
+
+// Cambio rápido de fechas, usado al redimensionar o mover una barra en el Gantt.
+public record TareaFechasUpdateDto(DateOnly? FechaInicio, DateOnly? FechaObjetivo);

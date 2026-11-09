@@ -4,7 +4,7 @@ import { es } from "date-fns/locale";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { colorForId, initialsFor } from "../components/PersonaAvatar";
 import { SelectField } from "../components/SelectField";
-import { TareaFormModal } from "../components/TareaFormModal";
+import { TareaFormModal, type TareaDefaults } from "../components/TareaFormModal";
 import { equiposApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
 import {
   CHART_COLORS,
@@ -19,6 +19,7 @@ import type { Equipo, Persona, Proyecto, Tarea } from "../types";
 type Vista = "persona" | "equipo" | "proyecto";
 type Agrupacion = "persona" | "proyecto" | "ninguna";
 type Escala = "dia" | "semana" | "mes";
+type ModoArrastre = "inicio" | "fin" | "mover";
 
 const DIA_PX: Record<Escala, number> = { dia: 40, semana: 20, mes: 8 };
 const ESCALA_LABEL: Record<Escala, string> = { dia: "Días", semana: "Semanas", mes: "Meses" };
@@ -30,7 +31,10 @@ const ROW_H = 36;
 const GROUP_H = 30;
 const HEADER_H = 52;
 const BAR_H = 20;
+const HANDLE_W = 7;
 const HORAS_POR_DIA = 8;
+// Zona libre bajo la última fila para poder crear tareas aunque no haya ninguna.
+const HUECO_FINAL_H = ROW_H * 3;
 
 interface TareaPlanificada {
   tarea: Tarea;
@@ -40,12 +44,28 @@ interface TareaPlanificada {
   estimada: boolean;
 }
 
+// Persona y proyecto asociados a una fila: se usan como valores por defecto al crear una tarea
+// haciendo clic en un hueco de esa fila.
+interface ContextoFila {
+  responsableId?: string | null;
+  proyectoId?: string | null;
+}
+
 type Fila =
-  | { tipo: "grupo"; key: string; label: string; colorId: string | null; total: number; y: number }
-  | { tipo: "tarea"; key: string; item: TareaPlanificada; y: number };
+  | { tipo: "grupo"; key: string; label: string; colorId: string | null; total: number; y: number; contexto: ContextoFila }
+  | { tipo: "tarea"; key: string; item: TareaPlanificada; y: number; contexto: ContextoFila };
+
+interface Arrastre {
+  id: string;
+  modo: ModoArrastre;
+  startX: number;
+  delta: number;
+  movido: boolean;
+}
 
 // Duración en días laborables a partir de la estimación en horas (mínimo un día).
 const diasDeEstimacion = (horas: number) => Math.max(1, Math.ceil((horas || 0) / HORAS_POR_DIA));
+const aIso = (d: Date) => format(d, "yyyy-MM-dd");
 
 function planificar(t: Tarea): TareaPlanificada | null {
   const ini = t.fechaInicio ? startOfDay(parseISO(t.fechaInicio)) : null;
@@ -57,6 +77,19 @@ function planificar(t: Tarea): TareaPlanificada | null {
   return null;
 }
 
+// Aplica el desplazamiento (en días) de un arrastre en curso al rango de una tarea.
+function rangoConArrastre(item: TareaPlanificada, arrastre: Arrastre | null): { inicio: Date; fin: Date } {
+  if (!arrastre || arrastre.id !== item.tarea.id || arrastre.delta === 0) return item;
+  const { inicio, fin } = item;
+  if (arrastre.modo === "mover") return { inicio: addDays(inicio, arrastre.delta), fin: addDays(fin, arrastre.delta) };
+  if (arrastre.modo === "inicio") {
+    const nuevo = addDays(inicio, arrastre.delta);
+    return { inicio: nuevo > fin ? fin : nuevo, fin };
+  }
+  const nuevo = addDays(fin, arrastre.delta);
+  return { inicio, fin: nuevo < inicio ? inicio : nuevo };
+}
+
 const colorEstado = (t: Tarea) => CHIP_COLOR_TO_CHART[ESTADO_TAREA_COLOR[t.estado]] ?? CHART_COLORS.muted;
 
 export default function TareasGanttPage() {
@@ -65,6 +98,7 @@ export default function TareasGanttPage() {
   const [equipos, setEquipos] = useState<Equipo[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [vista, setVista] = useState<Vista>("equipo");
   const [seleccion, setSeleccion] = useState<string | null>(null);
@@ -74,11 +108,16 @@ export default function TareasGanttPage() {
   const [soloConRelacion, setSoloConRelacion] = useState(false);
 
   const [hoverId, setHoverId] = useState<string | null>(null);
+  const [hoverCelda, setHoverCelda] = useState<{ y: number; h: number; dia: number } | null>(null);
   const [editTarea, setEditTarea] = useState<Tarea | null>(null);
+  const [nuevaTarea, setNuevaTarea] = useState<TareaDefaults | null>(null);
+  const [arrastre, setArrastre] = useState<Arrastre | null>(null);
+  const arrastreRef = useRef<Arrastre | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const centradoInicial = useRef(false);
 
   const cargar = () => {
-    setLoading(true);
+    setLoading((prev) => prev || tareas.length === 0);
     tareasApi
       .listar({
         responsableId: vista === "persona" ? (seleccion ?? undefined) : undefined,
@@ -134,13 +173,13 @@ export default function TareasGanttPage() {
   const hoy = startOfDay(new Date());
   const { desde, numDias } = useMemo(() => {
     let min = addDays(hoy, -7);
-    let max = addDays(hoy, 21);
+    let max = addDays(hoy, 28);
     planificadas.forEach((p) => {
       if (p.inicio < min) min = p.inicio;
       if (p.fin > max) max = p.fin;
     });
-    const desde = addDays(min, -3);
-    return { desde, numDias: differenceInCalendarDays(addDays(max, 4), desde) + 1 };
+    const desde = addDays(min, -7);
+    return { desde, numDias: differenceInCalendarDays(addDays(max, 14), desde) + 1 };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planificadas]);
 
@@ -153,7 +192,8 @@ export default function TareasGanttPage() {
     let y = 0;
     const pushTareas = (items: TareaPlanificada[]) =>
       items.forEach((item) => {
-        resultado.push({ tipo: "tarea", key: item.tarea.id, item, y });
+        const contexto = { responsableId: item.tarea.responsableId, proyectoId: item.tarea.proyectoId };
+        resultado.push({ tipo: "tarea", key: item.tarea.id, item, y, contexto });
         y += ROW_H;
       });
 
@@ -175,25 +215,29 @@ export default function TareasGanttPage() {
     [...grupos.entries()]
       .sort(([ka, a], [kb, b]) => (ka === "__sin__" ? 1 : kb === "__sin__" ? -1 : a.label.localeCompare(b.label)))
       .forEach(([key, g]) => {
-        resultado.push({ tipo: "grupo", key: `g-${key}`, label: g.label, colorId: g.colorId, total: g.items.length, y });
+        const contexto: ContextoFila =
+          agrupacion === "persona" ? { responsableId: key === "__sin__" ? null : key } : { proyectoId: key };
+        resultado.push({ tipo: "grupo", key: `g-${key}`, label: g.label, colorId: g.colorId, total: g.items.length, y, contexto });
         y += GROUP_H;
         pushTareas(g.items);
       });
     return resultado;
   }, [planificadas, agrupacion]);
 
-  const altoCuerpo = filas.reduce((acc, f) => acc + (f.tipo === "grupo" ? GROUP_H : ROW_H), 0);
+  const altoFilas = filas.reduce((acc, f) => acc + (f.tipo === "grupo" ? GROUP_H : ROW_H), 0);
+  const altoCuerpo = altoFilas + HUECO_FINAL_H;
 
-  // Posición de cada barra, para trazar los conectores entre tareas relacionadas.
+  // Posición de cada barra (incluyendo el arrastre en curso), para trazar los conectores.
   const barras = useMemo(() => {
     const m = new Map<string, { x1: number; x2: number; yc: number }>();
     filas.forEach((f) => {
       if (f.tipo !== "tarea") return;
-      m.set(f.item.tarea.id, { x1: xDe(f.item.inicio), x2: xDe(f.item.fin) + diaPx, yc: f.y + ROW_H / 2 });
+      const r = rangoConArrastre(f.item, arrastre);
+      m.set(f.item.tarea.id, { x1: xDe(r.inicio), x2: xDe(r.fin) + diaPx, yc: f.y + ROW_H / 2 });
     });
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filas, diaPx, desde]);
+  }, [filas, diaPx, desde, arrastre]);
 
   // Las relaciones se guardan en ambos sentidos: se deduplican y se dibujan de la que
   // empieza antes hacia la que empieza después.
@@ -236,13 +280,130 @@ export default function TareasGanttPage() {
     if (el) el.scrollTo({ left: Math.max(0, xDe(hoy) - (el.clientWidth - LEFT_W) / 3), behavior: "smooth" });
   };
 
-  // Al cargar o cambiar de escala, centra la vista en hoy.
+  // Centra la vista en hoy la primera vez que se pinta y al cambiar de escala, pero no tras
+  // cada recarga (p. ej. al guardar una tarea), para no perder la posición del usuario.
   useEffect(() => {
-    if (!loading) irAHoy();
+    if (loading) return;
+    if (!centradoInicial.current) {
+      centradoInicial.current = true;
+      irAHoy();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, escala]);
+  }, [loading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => irAHoy(), [escala]);
+
+  // ---- Arrastre de barras (mover o cambiar fecha de inicio / fin) ----
+
+  const empezarArrastre = (e: React.PointerEvent, id: string, modo: ModoArrastre) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const a: Arrastre = { id, modo, startX: e.clientX, delta: 0, movido: false };
+    arrastreRef.current = a;
+    setArrastre(a);
+  };
+
+  const arrastrando = arrastre !== null;
+  useEffect(() => {
+    if (!arrastrando) return;
+
+    const onMove = (e: PointerEvent) => {
+      const a = arrastreRef.current;
+      if (!a) return;
+      const dx = e.clientX - a.startX;
+      const delta = Math.round(dx / diaPx);
+      const movido = a.movido || Math.abs(dx) > 3;
+      if (delta === a.delta && movido === a.movido) return;
+      const sig = { ...a, delta, movido };
+      arrastreRef.current = sig;
+      setArrastre(sig);
+    };
+
+    const onUp = () => {
+      const a = arrastreRef.current;
+      arrastreRef.current = null;
+      setArrastre(null);
+      if (!a) return;
+      const item = planificadas.find((p) => p.tarea.id === a.id);
+      if (!item) return;
+
+      // Un clic sin desplazamiento sobre la barra abre la tarea para editarla.
+      if (!a.movido) {
+        if (a.modo === "mover") setEditTarea(item.tarea);
+        return;
+      }
+      if (a.delta === 0) return;
+
+      const { inicio, fin } = rangoConArrastre(item, a);
+      const fechaInicio = aIso(inicio);
+      const fechaObjetivo = aIso(fin);
+      // Actualización optimista: se pinta ya y, si falla, se recarga desde el servidor.
+      setTareas((prev) => prev.map((t) => (t.id === a.id ? { ...t, fechaInicio, fechaObjetivo } : t)));
+      setError(null);
+      tareasApi.cambiarFechas(a.id, fechaInicio, fechaObjetivo).catch(() => {
+        setError("No se han podido guardar las nuevas fechas de la tarea.");
+        cargar();
+      });
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrastrando, diaPx, planificadas]);
+
+  // ---- Creación de tareas haciendo clic en un hueco ----
+
+  const diaEnPuntero = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return Math.max(0, Math.min(numDias - 1, Math.floor((e.clientX - rect.left) / diaPx)));
+  };
+
+  const proyectosDelEquipo = useMemo(
+    () => (vista === "equipo" && seleccion ? proyectos.filter((p) => p.equipoId === seleccion) : proyectos),
+    [vista, seleccion, proyectos],
+  );
+
+  const crearEn = (dia: number, contexto: ContextoFila) => {
+    const fecha = aIso(addDays(desde, dia));
+    let proyectoId = contexto.proyectoId ?? null;
+    let responsableId = contexto.responsableId ?? null;
+    if (!proyectoId && vista === "proyecto") proyectoId = seleccion;
+    if (!proyectoId && vista === "equipo" && proyectosDelEquipo.length === 1) proyectoId = proyectosDelEquipo[0].id;
+    if (!responsableId && vista === "persona") responsableId = seleccion;
+    setNuevaTarea({ proyectoId, responsableId, fechaInicio: fecha, fechaObjetivo: fecha });
+  };
 
   const atenuada = (id: string) => relacionadasConHover !== null && !relacionadasConHover.has(id);
+
+  // Capa clicable sobre la parte de línea de tiempo de una fila: resalta la celda bajo el
+  // cursor y crea una tarea en ese día al hacer clic.
+  const capaCrear = (y: number, h: number, contexto: ContextoFila) => (
+    <div
+      className="absolute top-0 h-full cursor-cell"
+      style={{ left: LEFT_W, width: anchoTimeline }}
+      onMouseMove={(e) => {
+        if (arrastre) return;
+        const dia = diaEnPuntero(e);
+        if (!hoverCelda || hoverCelda.dia !== dia || hoverCelda.y !== y) setHoverCelda({ y, h, dia });
+      }}
+      onMouseLeave={() => setHoverCelda(null)}
+      onClick={(e) => crearEn(diaEnPuntero(e), contexto)}
+    />
+  );
+
+  const contextoFiltro: ContextoFila = {
+    responsableId: vista === "persona" ? seleccion : null,
+    proyectoId: vista === "proyecto" ? seleccion : null,
+  };
+
+  const editando = editTarea !== null;
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -250,8 +411,8 @@ export default function TareasGanttPage() {
         <div>
           <h1 className="text-2xl font-semibold">Gantt de tareas</h1>
           <p className="text-sm text-muted">
-            Planificación diaria por persona, equipo o proyecto. Las líneas unen tareas relacionadas; pasa el ratón por una tarea
-            para resaltarlas y haz clic para editarla.
+            Arrastra los bordes de una barra para cambiar sus fechas o la barra entera para moverla. Haz clic en un hueco para crear
+            una tarea ese día. Las líneas unen tareas relacionadas.
           </p>
         </div>
         <div className="flex gap-1">
@@ -313,140 +474,168 @@ export default function TareasGanttPage() {
         </Checkbox>
       </div>
 
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+
       {loading ? (
         <div className="flex justify-center py-16">
           <Spinner size="lg" />
         </div>
-      ) : planificadas.length === 0 && sinFechas.length === 0 ? (
-        <p className="text-sm text-muted">No hay tareas para este filtro.</p>
       ) : (
         <>
-          {planificadas.length > 0 ? (
-            <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-surface">
-              <div className="relative" style={{ width: LEFT_W + anchoTimeline, height: HEADER_H + altoCuerpo }}>
-                {/* Cabecera: meses y días */}
-                <div className="sticky top-0 z-30 flex border-b border-border bg-surface" style={{ height: HEADER_H }}>
-                  <div
-                    className="sticky left-0 z-40 flex items-end border-r border-border bg-surface px-3 pb-2 text-xs font-semibold text-muted"
-                    style={{ width: LEFT_W, minWidth: LEFT_W }}
-                  >
-                    Tarea
-                  </div>
-                  <div className="relative" style={{ width: anchoTimeline }}>
-                    {meses.map((m) => (
-                      <div
-                        key={m.label + m.x}
-                        className="absolute top-0 truncate border-l border-border px-2 pt-1 text-xs font-semibold capitalize"
-                        style={{ left: m.x, width: m.w, height: HEADER_H / 2 }}
-                      >
-                        {m.label}
-                      </div>
-                    ))}
-                    {dias.map((d, i) => {
-                      const mostrar = diaPx >= 20 || d.getDay() === 1;
-                      if (!mostrar) return null;
-                      const esHoy = differenceInCalendarDays(d, hoy) === 0;
-                      return (
-                        <div
-                          key={i}
-                          className={`absolute flex flex-col items-center justify-center text-[10px] leading-tight ${
-                            esHoy ? "font-bold text-accent" : isWeekend(d) ? "text-muted/60" : "text-muted"
-                          }`}
-                          style={{ left: i * diaPx, width: diaPx >= 20 ? diaPx : diaPx * 7, top: HEADER_H / 2, height: HEADER_H / 2 }}
-                        >
-                          {diaPx >= 40 ? <span>{format(d, "EEEEEE", { locale: es })}</span> : null}
-                          <span>{format(d, "d")}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Fondo: fines de semana y línea de hoy */}
-                <div className="pointer-events-none absolute" style={{ left: LEFT_W, top: HEADER_H, width: anchoTimeline, height: altoCuerpo }}>
-                  {dias.map((d, i) =>
-                    isWeekend(d) ? (
-                      <div key={i} className="absolute top-0 h-full bg-default/40" style={{ left: i * diaPx, width: diaPx }} />
-                    ) : diaPx >= 20 ? (
-                      <div key={i} className="absolute top-0 h-full border-l border-border/40" style={{ left: i * diaPx }} />
-                    ) : null,
-                  )}
-                  <div className="absolute top-0 z-10 h-full w-0.5 bg-accent/70" style={{ left: xDe(hoy) + diaPx / 2 }} />
-                </div>
-
-                {/* Filas */}
-                {filas.map((f) =>
-                  f.tipo === "grupo" ? (
-                    <div
-                      key={f.key}
-                      className="absolute left-0 flex w-full items-center border-b border-border bg-default/30"
-                      style={{ top: HEADER_H + f.y, height: GROUP_H }}
-                    >
-                      <div
-                        className="sticky left-0 z-20 flex h-full items-center gap-2 bg-surface px-3 text-xs font-semibold"
-                        style={{ width: LEFT_W, minWidth: LEFT_W }}
-                      >
-                        {f.colorId ? (
-                          <span
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-white"
-                            style={{ backgroundColor: colorForId(f.colorId) }}
-                          >
-                            {initialsFor(f.label)}
-                          </span>
-                        ) : null}
-                        <span className="truncate">{f.label}</span>
-                        <span className="ml-auto text-muted">{f.total}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <FilaTarea
-                      key={f.key}
-                      item={f.item}
-                      top={HEADER_H + f.y}
-                      x={xDe(f.item.inicio)}
-                      w={(differenceInCalendarDays(f.item.fin, f.item.inicio) + 1) * diaPx}
-                      atenuada={atenuada(f.item.tarea.id)}
-                      onHover={setHoverId}
-                      onClick={() => setEditTarea(f.item.tarea)}
-                    />
-                  ),
-                )}
-
-                {/* Conectores entre tareas relacionadas */}
-                <svg
-                  className="pointer-events-none absolute z-[15]"
-                  style={{ left: LEFT_W, top: HEADER_H, width: anchoTimeline, height: altoCuerpo }}
+          <div
+            ref={scrollRef}
+            className={`min-h-0 flex-1 select-none overflow-auto rounded-xl border border-border bg-surface ${
+              arrastre ? (arrastre.modo === "mover" ? "cursor-grabbing" : "cursor-ew-resize") : ""
+            }`}
+          >
+            <div className="relative" style={{ width: LEFT_W + anchoTimeline, height: HEADER_H + altoCuerpo }}>
+              {/* Cabecera: meses y días */}
+              <div className="sticky top-0 z-30 flex border-b border-border bg-surface" style={{ height: HEADER_H }}>
+                <div
+                  className="sticky left-0 z-40 flex items-end border-r border-border bg-surface px-3 pb-2 text-xs font-semibold text-muted"
+                  style={{ width: LEFT_W, minWidth: LEFT_W }}
                 >
-                  <defs>
-                    <marker id="gantt-flecha" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                      <path d="M0,0 L8,4 L0,8 z" fill="context-stroke" />
-                    </marker>
-                  </defs>
-                  {conectores.map(({ a, b }) => {
-                    const pa = barras.get(a)!;
-                    const pb = barras.get(b)!;
-                    const resaltado = relacionadasConHover?.has(a) && relacionadasConHover?.has(b) && (hoverId === a || hoverId === b);
-                    const x1 = pa.x2;
-                    const x2 = pb.x1;
-                    const dx = Math.max(24, Math.abs(x2 - x1) / 2);
-                    const d = `M ${x1} ${pa.yc} C ${x1 + dx} ${pa.yc}, ${x2 - dx} ${pb.yc}, ${x2} ${pb.yc}`;
+                  Tarea
+                </div>
+                <div className="relative" style={{ width: anchoTimeline }}>
+                  {meses.map((m) => (
+                    <div
+                      key={m.label + m.x}
+                      className="absolute top-0 truncate border-l border-border px-2 pt-1 text-xs font-semibold capitalize"
+                      style={{ left: m.x, width: m.w, height: HEADER_H / 2 }}
+                    >
+                      {m.label}
+                    </div>
+                  ))}
+                  {dias.map((d, i) => {
+                    const mostrar = diaPx >= 20 || d.getDay() === 1;
+                    if (!mostrar) return null;
+                    const esHoy = differenceInCalendarDays(d, hoy) === 0;
                     return (
-                      <path
-                        key={`${a}-${b}`}
-                        d={d}
-                        fill="none"
-                        stroke={resaltado ? "var(--accent)" : "var(--muted)"}
-                        strokeOpacity={relacionadasConHover && !resaltado ? 0.15 : resaltado ? 1 : 0.55}
-                        strokeWidth={resaltado ? 2.2 : 1.4}
-                        strokeDasharray={x2 < x1 ? "4 3" : undefined}
-                        markerEnd="url(#gantt-flecha)"
-                      />
+                      <div
+                        key={i}
+                        className={`absolute flex flex-col items-center justify-center text-[10px] leading-tight ${
+                          esHoy ? "font-bold text-accent" : isWeekend(d) ? "text-muted/60" : "text-muted"
+                        }`}
+                        style={{ left: i * diaPx, width: diaPx >= 20 ? diaPx : diaPx * 7, top: HEADER_H / 2, height: HEADER_H / 2 }}
+                      >
+                        {diaPx >= 40 ? <span>{format(d, "EEEEEE", { locale: es })}</span> : null}
+                        <span>{format(d, "d")}</span>
+                      </div>
                     );
                   })}
-                </svg>
+                </div>
               </div>
+
+              {/* Fondo: fines de semana, línea de hoy y celda bajo el cursor */}
+              <div className="pointer-events-none absolute" style={{ left: LEFT_W, top: HEADER_H, width: anchoTimeline, height: altoCuerpo }}>
+                {dias.map((d, i) =>
+                  isWeekend(d) ? (
+                    <div key={i} className="absolute top-0 h-full bg-default/40" style={{ left: i * diaPx, width: diaPx }} />
+                  ) : diaPx >= 20 ? (
+                    <div key={i} className="absolute top-0 h-full border-l border-border/40" style={{ left: i * diaPx }} />
+                  ) : null,
+                )}
+                <div className="absolute top-0 z-10 h-full w-0.5 bg-accent/70" style={{ left: xDe(hoy) + diaPx / 2 }} />
+                {hoverCelda && !arrastre ? (
+                  <div
+                    className="absolute z-[5] flex items-center justify-center rounded border border-dashed border-accent bg-accent-soft/60 text-xs font-semibold text-accent"
+                    style={{ left: hoverCelda.dia * diaPx, top: hoverCelda.y + 3, width: Math.max(diaPx, 14), height: hoverCelda.h - 6 }}
+                    title={format(addDays(desde, hoverCelda.dia), "EEEE d 'de' MMMM", { locale: es })}
+                  >
+                    +
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Filas */}
+              {filas.map((f) =>
+                f.tipo === "grupo" ? (
+                  <div
+                    key={f.key}
+                    className="absolute left-0 flex w-full items-center border-b border-border bg-default/30"
+                    style={{ top: HEADER_H + f.y, height: GROUP_H }}
+                  >
+                    {capaCrear(f.y, GROUP_H, f.contexto)}
+                    <div
+                      className="sticky left-0 z-20 flex h-full items-center gap-2 bg-surface px-3 text-xs font-semibold"
+                      style={{ width: LEFT_W, minWidth: LEFT_W }}
+                    >
+                      {f.colorId ? (
+                        <span
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-white"
+                          style={{ backgroundColor: colorForId(f.colorId) }}
+                        >
+                          {initialsFor(f.label)}
+                        </span>
+                      ) : null}
+                      <span className="truncate">{f.label}</span>
+                      <span className="ml-auto text-muted">{f.total}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <FilaTarea
+                    key={f.key}
+                    item={f.item}
+                    rango={rangoConArrastre(f.item, arrastre)}
+                    arrastrando={arrastre?.id === f.item.tarea.id}
+                    top={HEADER_H + f.y}
+                    xDe={xDe}
+                    diaPx={diaPx}
+                    atenuada={atenuada(f.item.tarea.id)}
+                    capa={capaCrear(f.y, ROW_H, f.contexto)}
+                    onHover={(id) => !arrastre && setHoverId(id)}
+                    onEditar={() => setEditTarea(f.item.tarea)}
+                    onArrastre={(e, modo) => empezarArrastre(e, f.item.tarea.id, modo)}
+                  />
+                ),
+              )}
+
+              {/* Hueco final para crear tareas fuera de cualquier grupo */}
+              <div className="absolute left-0 flex w-full" style={{ top: HEADER_H + altoFilas, height: HUECO_FINAL_H }}>
+                {capaCrear(altoFilas, HUECO_FINAL_H, contextoFiltro)}
+                <div
+                  className="sticky left-0 z-20 flex h-full items-center border-r border-border bg-surface px-3 text-xs text-muted"
+                  style={{ width: LEFT_W, minWidth: LEFT_W }}
+                >
+                  {planificadas.length === 0 ? "No hay tareas planificadas. " : ""}Haz clic en un día para crear una tarea.
+                </div>
+              </div>
+
+              {/* Conectores entre tareas relacionadas */}
+              <svg
+                className="pointer-events-none absolute z-[15]"
+                style={{ left: LEFT_W, top: HEADER_H, width: anchoTimeline, height: altoFilas }}
+              >
+                <defs>
+                  <marker id="gantt-flecha" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M0,0 L8,4 L0,8 z" fill="context-stroke" />
+                  </marker>
+                </defs>
+                {conectores.map(({ a, b }) => {
+                  const pa = barras.get(a)!;
+                  const pb = barras.get(b)!;
+                  const resaltado = relacionadasConHover?.has(a) && relacionadasConHover?.has(b) && (hoverId === a || hoverId === b);
+                  const x1 = pa.x2;
+                  const x2 = pb.x1;
+                  const dx = Math.max(24, Math.abs(x2 - x1) / 2);
+                  const d = `M ${x1} ${pa.yc} C ${x1 + dx} ${pa.yc}, ${x2 - dx} ${pb.yc}, ${x2} ${pb.yc}`;
+                  return (
+                    <path
+                      key={`${a}-${b}`}
+                      d={d}
+                      fill="none"
+                      stroke={resaltado ? "var(--accent)" : "var(--muted)"}
+                      strokeOpacity={relacionadasConHover && !resaltado ? 0.15 : resaltado ? 1 : 0.55}
+                      strokeWidth={resaltado ? 2.2 : 1.4}
+                      strokeDasharray={x2 < x1 ? "4 3" : undefined}
+                      markerEnd="url(#gantt-flecha)"
+                    />
+                  );
+                })}
+              </svg>
             </div>
-          ) : null}
+          </div>
 
           {sinFechas.length > 0 ? (
             <div className="rounded-xl border border-border bg-surface p-3">
@@ -473,10 +662,15 @@ export default function TareasGanttPage() {
       )}
 
       <TareaFormModal
-        isOpen={!!editTarea}
-        onOpenChange={(open) => !open && setEditTarea(null)}
+        isOpen={editando || nuevaTarea !== null}
+        onOpenChange={(open) => {
+          if (open) return;
+          setEditTarea(null);
+          setNuevaTarea(null);
+        }}
         tarea={editTarea}
-        proyectos={proyectos}
+        defaults={nuevaTarea ?? undefined}
+        proyectos={editando ? proyectos : proyectosDelEquipo}
         personas={personas}
         onSaved={cargar}
       />
@@ -486,28 +680,38 @@ export default function TareasGanttPage() {
 
 function FilaTarea({
   item,
+  rango,
+  arrastrando,
   top,
-  x,
-  w,
+  xDe,
+  diaPx,
   atenuada,
+  capa,
   onHover,
-  onClick,
+  onEditar,
+  onArrastre,
 }: {
   item: TareaPlanificada;
+  rango: { inicio: Date; fin: Date };
+  arrastrando: boolean;
   top: number;
-  x: number;
-  w: number;
+  xDe: (d: Date) => number;
+  diaPx: number;
   atenuada: boolean;
+  capa: React.ReactNode;
   onHover: (id: string | null) => void;
-  onClick: () => void;
+  onEditar: () => void;
+  onArrastre: (e: React.PointerEvent, modo: ModoArrastre) => void;
 }) {
   const t = item.tarea;
   const color = colorEstado(t);
-  const rango = `${format(item.inicio, "d MMM", { locale: es })} → ${format(item.fin, "d MMM", { locale: es })}`;
+  const x = xDe(rango.inicio);
+  const w = (differenceInCalendarDays(rango.fin, rango.inicio) + 1) * diaPx;
+  const textoRango = `${format(rango.inicio, "d MMM", { locale: es })} → ${format(rango.fin, "d MMM", { locale: es })}`;
   const tooltip = [
     t.titulo,
     `${t.proyectoCodigo} · ${ESTADO_TAREA_LABEL[t.estado]} · Prioridad ${PRIORIDAD_LABEL[t.prioridad]}`,
-    `${rango}${item.estimada ? " (duración estimada)" : ""}`,
+    `${textoRango}${item.estimada ? " (duración estimada)" : ""}`,
     t.responsableNombre ? `Responsable: ${t.responsableNombre}` : "Sin responsable",
     t.relacionadas.length ? `Relacionada con: ${t.relacionadas.map((r) => r.titulo).join(", ")}` : null,
   ]
@@ -521,9 +725,10 @@ function FilaTarea({
       onMouseEnter={() => onHover(t.id)}
       onMouseLeave={() => onHover(null)}
     >
+      {capa}
       <button
         type="button"
-        onClick={onClick}
+        onClick={onEditar}
         className="sticky left-0 z-20 flex h-full items-center gap-2 border-r border-border bg-surface px-3 text-left hover:bg-default/40"
         style={{ width: LEFT_W, minWidth: LEFT_W }}
         title={tooltip}
@@ -538,13 +743,16 @@ function FilaTarea({
           </span>
         </span>
       </button>
-      <button
-        type="button"
-        onClick={onClick}
-        title={tooltip}
-        className={`absolute z-10 flex items-center gap-1 overflow-hidden rounded-md px-1.5 text-[10px] font-medium text-white shadow-sm hover:brightness-110 ${
+
+      <div
+        role="button"
+        tabIndex={0}
+        title={arrastrando ? undefined : tooltip}
+        onPointerDown={(e) => onArrastre(e, "mover")}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onEditar()}
+        className={`group absolute z-10 flex cursor-grab items-center gap-1 overflow-hidden rounded-md px-1.5 text-[10px] font-medium text-white shadow-sm hover:brightness-110 ${
           t.estaVencida ? "ring-2 ring-danger" : ""
-        }`}
+        } ${arrastrando ? "shadow-lg ring-2 ring-accent" : ""}`}
         style={{
           left: LEFT_W + x + 1,
           width: Math.max(w - 2, 6),
@@ -557,6 +765,19 @@ function FilaTarea({
             : undefined,
         }}
       >
+        {/* Asas laterales para cambiar la fecha de inicio (izquierda) o la fecha objetivo (derecha) */}
+        <span
+          aria-label="Cambiar fecha de inicio"
+          className="absolute inset-y-0 left-0 cursor-ew-resize bg-white/0 group-hover:bg-white/30"
+          style={{ width: HANDLE_W }}
+          onPointerDown={(e) => onArrastre(e, "inicio")}
+        />
+        <span
+          aria-label="Cambiar fecha objetivo"
+          className="absolute inset-y-0 right-0 cursor-ew-resize bg-white/0 group-hover:bg-white/30"
+          style={{ width: HANDLE_W }}
+          onPointerDown={(e) => onArrastre(e, "fin")}
+        />
         {t.responsableId ? (
           <span
             className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[7px] font-semibold"
@@ -566,7 +787,16 @@ function FilaTarea({
           </span>
         ) : null}
         <span className="truncate">{t.titulo}</span>
-      </button>
+      </div>
+
+      {arrastrando ? (
+        <span
+          className="pointer-events-none absolute z-30 whitespace-nowrap rounded bg-foreground px-1.5 py-0.5 text-[10px] text-background shadow"
+          style={{ left: LEFT_W + x, top: -14 }}
+        >
+          {textoRango}
+        </span>
+      ) : null}
     </div>
   );
 }

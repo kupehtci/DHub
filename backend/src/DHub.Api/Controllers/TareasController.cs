@@ -191,6 +191,22 @@ public class TareasController : ControllerBase
         return NoContent();
     }
 
+    // Cambio rápido de fechas, usado al redimensionar o mover una barra en el Gantt.
+    [HttpPatch("{id:guid}/fechas")]
+    public async Task<IActionResult> CambiarFechas(Guid id, TareaFechasUpdateDto dto)
+    {
+        if (dto.FechaInicio.HasValue && dto.FechaObjetivo.HasValue && dto.FechaObjetivo < dto.FechaInicio)
+            return BadRequest("La fecha objetivo no puede ser anterior a la fecha de inicio.");
+
+        var tarea = await _db.Tareas.FindAsync(id);
+        if (tarea is null) return NotFound();
+
+        tarea.FechaInicio = dto.FechaInicio;
+        tarea.FechaObjetivo = dto.FechaObjetivo;
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Eliminar(Guid id)
     {
