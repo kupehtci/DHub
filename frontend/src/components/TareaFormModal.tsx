@@ -36,7 +36,15 @@ interface FormState {
   jiraTicketUrl: string;
 }
 
-function emptyForm(proyectoId?: string): FormState {
+// Valores iniciales opcionales para una tarea nueva (p. ej. al crearla desde el Gantt).
+export interface TareaDefaults {
+  proyectoId?: string | null;
+  responsableId?: string | null;
+  fechaInicio?: string | null;
+  fechaObjetivo?: string | null;
+}
+
+function emptyForm(proyectoId?: string, defaults?: TareaDefaults): FormState {
   return {
     titulo: "",
     descripcion: "",
@@ -54,6 +62,10 @@ function emptyForm(proyectoId?: string): FormState {
     fechaRevisionBloqueo: "",
     jiraTicketClave: "",
     jiraTicketUrl: "",
+    ...(defaults?.proyectoId ? { proyectoId: defaults.proyectoId } : {}),
+    ...(defaults?.responsableId ? { responsableId: defaults.responsableId } : {}),
+    ...(defaults?.fechaInicio ? { fechaInicio: defaults.fechaInicio } : {}),
+    ...(defaults?.fechaObjetivo ? { fechaObjetivo: defaults.fechaObjetivo } : {}),
   };
 }
 
@@ -64,6 +76,7 @@ export function TareaFormModal({
   proyectos,
   personas,
   defaultProyectoId,
+  defaults,
   onSaved,
 }: {
   isOpen: boolean;
@@ -72,6 +85,7 @@ export function TareaFormModal({
   proyectos: ProyectoOption[];
   personas: Persona[];
   defaultProyectoId?: string;
+  defaults?: TareaDefaults;
   onSaved: () => void;
 }) {
   const [form, setForm] = useState<FormState>(emptyForm(defaultProyectoId));
@@ -117,7 +131,7 @@ export function TareaFormModal({
       setRelacionadasIds(tarea.relacionadas.map((r) => r.id));
       cargarComentarios(tarea.id);
     } else {
-      setForm(emptyForm(defaultProyectoId));
+      setForm(emptyForm(defaultProyectoId, defaults));
       setComentarios([]);
       setRelacionadasIds([]);
     }
@@ -126,7 +140,7 @@ export function TareaFormModal({
     setJiraInfo(null);
     setJiraError(null);
     tareasApi.listar().then((r) => setTodasLasTareas(r.data));
-  }, [isOpen, tarea, defaultProyectoId]);
+  }, [isOpen, tarea, defaultProyectoId, defaults]);
 
   const handleComprobarJira = async () => {
     setJiraInfo(null);
