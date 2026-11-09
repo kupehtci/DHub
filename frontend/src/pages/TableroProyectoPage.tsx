@@ -6,6 +6,7 @@ import { TareaCard } from "../components/kanban/TareaCard";
 import { IconDownload } from "../components/Icons";
 import { SelectField } from "../components/SelectField";
 import { TareaFormModal } from "../components/TareaFormModal";
+import { useJiraTickets } from "../hooks/useJiraTickets";
 import { personasApi, proyectosApi, tareasApi } from "../lib/api";
 import { ESTADO_TAREA_LABEL } from "../lib/format";
 import { ESTADOS_TAREA, type EstadoTarea, type Persona, type Proyecto, type Tarea } from "../types";
@@ -40,6 +41,8 @@ export default function TableroProyectoPage() {
   };
 
   useEffect(cargar, [proyectoId]);
+
+  const jiraPorClave = useJiraTickets(tareas.map((t) => t.jiraTicketClave));
 
   const columnas = useMemo(() => {
     const map = new Map<EstadoTarea, Tarea[]>(ESTADOS_TAREA.map((e) => [e, []]));
@@ -110,7 +113,7 @@ export default function TableroProyectoPage() {
                 </div>
                 {(columnas.get(estado) ?? []).map((t) => (
                   <DraggableCard key={t.id} id={t.id} columnId={estado}>
-                    <TareaCard tarea={t} onClick={() => setEditTarea(t)} />
+                    <TareaCard tarea={t} onClick={() => setEditTarea(t)} jiraInfo={t.jiraTicketClave ? jiraPorClave.get(t.jiraTicketClave) : undefined} />
                   </DraggableCard>
                 ))}
               </DroppableColumn>

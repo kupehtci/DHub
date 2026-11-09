@@ -20,6 +20,9 @@ public class AppDbContext : DbContext
     public DbSet<CuentaUsuario> CuentasUsuario => Set<CuentaUsuario>();
     public DbSet<TareaRelacion> TareasRelacionadas => Set<TareaRelacion>();
     public DbSet<Vacacion> Vacaciones => Set<Vacacion>();
+    public DbSet<JiraEspacio> JiraEspacios => Set<JiraEspacio>();
+    public DbSet<JiraConfiguracion> JiraConfiguraciones => Set<JiraConfiguracion>();
+    public DbSet<JiraTicketCache> JiraTicketsCache => Set<JiraTicketCache>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

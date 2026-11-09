@@ -1,4 +1,5 @@
 import { Button, Input, Label, Spinner, Tabs, TextArea, TextField } from "@heroui/react";
+import axios from "axios";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -11,7 +12,8 @@ import { StatusChip } from "../components/StatusChip";
 import { PrioridadChip } from "../components/PrioridadChip";
 import { PersonaAvatar } from "../components/PersonaAvatar";
 import { TareaFormModal } from "../components/TareaFormModal";
-import { hitosApi, notasApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
+import { useJiraTickets } from "../hooks/useJiraTickets";
+import { hitosApi, jiraApi, notasApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
 import {
   ESTADO_HITO_COLOR,
   ESTADO_HITO_LABEL,
@@ -27,7 +29,7 @@ import {
   IMPACTO_LABEL,
   TIPO_NOTA_LABEL,
 } from "../lib/format";
-import type { EstadoHito, Nota, Persona, ProyectoDetalle, Riesgo, Tarea, TipoNota } from "../types";
+import type { EstadoHito, JiraTicketInfo, Nota, Persona, ProyectoDetalle, Riesgo, Tarea, TipoNota } from "../types";
 
 const hoyIso = () => new Date().toISOString().slice(0, 10);
 
@@ -45,6 +47,11 @@ export default function ProyectoDetallePage() {
   const [notaForm, setNotaForm] = useState({ autorId: null as string | null, tipo: "Seguimiento" as TipoNota, texto: "" });
   const [deleteTarea, setDeleteTarea] = useState<Tarea | null>(null);
 
+  const [jiraTicketsProyecto, setJiraTicketsProyecto] = useState<JiraTicketInfo[]>([]);
+  const [jiraProyectoLoading, setJiraProyectoLoading] = useState(false);
+  const [jiraProyectoError, setJiraProyectoError] = useState<string | null>(null);
+  const [soloAbiertosJira, setSoloAbiertosJira] = useState(true);
+
   const cargar = () => {
     if (!id) return;
     setLoading(true);
@@ -56,6 +63,26 @@ export default function ProyectoDetallePage() {
     personasApi.listar().then((r) => setPersonas(r.data));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const jiraPorClave = useJiraTickets(proyecto?.tareas.map((t) => t.jiraTicketClave) ?? []);
+
+  const cargarTicketsJiraProyecto = () => {
+    if (!proyecto?.jiraClaveProyecto) return;
+    setJiraProyectoLoading(true);
+    setJiraProyectoError(null);
+    jiraApi
+      .ticketsProyecto(proyecto.jiraClaveProyecto, soloAbiertosJira)
+      .then((r) => setJiraTicketsProyecto(r.data))
+      .catch((err) =>
+        setJiraProyectoError(axios.isAxiosError(err) && err.response?.data?.mensaje ? (err.response.data.mensaje as string) : "No se han podido cargar los tickets de Jira.")
+      )
+      .finally(() => setJiraProyectoLoading(false));
+  };
+
+  useEffect(() => {
+    if (tab === "jira") cargarTicketsJiraProyecto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, proyecto?.jiraClaveProyecto, soloAbiertosJira]);
 
   const handleCreateHito = async () => {
     if (!id) return;
@@ -168,6 +195,10 @@ export default function ProyectoDetallePage() {
               Notas ({proyecto.notas.length})
               <Tabs.Indicator />
             </Tabs.Tab>
+            <Tabs.Tab id="jira">
+              Jira
+              <Tabs.Indicator />
+            </Tabs.Tab>
           </Tabs.List>
         </Tabs.ListContainer>
 
@@ -214,8 +245,11 @@ export default function ProyectoDetallePage() {
                       {t.responsableNombre ?? "Sin responsable"} · {formatHoras(t.estimacionHoras)} · objetivo {formatFecha(t.fechaObjetivo)}
                     </p>
                     {t.jiraTicketUrl ? (
-                      <div className="mt-1">
+                      <div className="mt-1 flex items-center gap-1.5">
                         <JiraLink url={t.jiraTicketUrl} label={t.jiraTicketClave ?? "Jira"} />
+                        {t.jiraTicketClave && jiraPorClave.get(t.jiraTicketClave) ? (
+                          <span className="text-xs text-muted">{jiraPorClave.get(t.jiraTicketClave)!.estado}</span>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -366,6 +400,57 @@ export default function ProyectoDetallePage() {
               </div>
             ))}
           </div>
+        </Tabs.Panel>
+
+        <Tabs.Panel className="flex flex-col gap-3 pt-4" id="jira">
+          {!proyecto.jiraClaveProyecto ? (
+            <p className="text-sm text-muted">Este proyecto no tiene un espacio Jira asociado. Edítalo y elige uno del catálogo.</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-muted">Tickets del espacio {proyecto.jiraClaveProyecto} en Jira.</p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant={soloAbiertosJira ? "primary" : "secondary"} onPress={() => setSoloAbiertosJira(true)}>
+                    Abiertos
+                  </Button>
+                  <Button size="sm" variant={!soloAbiertosJira ? "primary" : "secondary"} onPress={() => setSoloAbiertosJira(false)}>
+                    Todos
+                  </Button>
+                  <Button size="sm" variant="ghost" onPress={cargarTicketsJiraProyecto}>
+                    Actualizar
+                  </Button>
+                </div>
+              </div>
+              {jiraProyectoError ? <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{jiraProyectoError}</p> : null}
+              {jiraProyectoLoading ? (
+                <div className="flex justify-center py-8">
+                  <Spinner />
+                </div>
+              ) : jiraTicketsProyecto.length === 0 && !jiraProyectoError ? (
+                <p className="text-sm text-muted">No hay tickets para este filtro.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {jiraTicketsProyecto.map((t) => (
+                    <a
+                      key={t.clave}
+                      href={t.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:bg-surface-secondary"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">
+                          {t.clave} · {t.resumen}
+                        </p>
+                        <p className="text-xs text-muted">{t.asignadoNombre ?? "Sin asignar"}</p>
+                      </div>
+                      <StatusChip color="default" label={t.estado} />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </Tabs.Panel>
       </Tabs>
 

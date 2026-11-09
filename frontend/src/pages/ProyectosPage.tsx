@@ -8,9 +8,9 @@ import { SelectField } from "../components/SelectField";
 import { StatusChip } from "../components/StatusChip";
 import { PrioridadChip } from "../components/PrioridadChip";
 import { PersonaAvatar } from "../components/PersonaAvatar";
-import { equiposApi, personasApi, proyectosApi } from "../lib/api";
+import { equiposApi, jiraApi, personasApi, proyectosApi } from "../lib/api";
 import { ESTADO_PROYECTO_COLOR, ESTADO_PROYECTO_LABEL, formatFecha, PRIORIDAD_LABEL } from "../lib/format";
-import type { Equipo, EstadoProyecto, Persona, Prioridad, Proyecto } from "../types";
+import type { Equipo, EstadoProyecto, JiraEspacio, Persona, Prioridad, Proyecto } from "../types";
 
 const ESTADOS: EstadoProyecto[] = ["Planificado", "EnCurso", "EnPausa", "Cerrado", "Cancelado"];
 const PRIORIDADES: Prioridad[] = ["Baja", "Media", "Alta", "Critica"];
@@ -52,6 +52,8 @@ export default function ProyectosPage() {
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [equipos, setEquipos] = useState<Equipo[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
+  const [espaciosJira, setEspaciosJira] = useState<JiraEspacio[]>([]);
+  const [jiraBaseUrl, setJiraBaseUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [q, setQ] = useState("");
@@ -80,6 +82,8 @@ export default function ProyectosPage() {
   useEffect(() => {
     equiposApi.listar().then((r) => setEquipos(r.data));
     personasApi.listar().then((r) => setPersonas(r.data));
+    jiraApi.espacios().then((r) => setEspaciosJira(r.data));
+    jiraApi.configuracion().then((r) => setJiraBaseUrl(r.data.baseUrl));
   }, []);
 
   useEffect(() => {
@@ -90,6 +94,13 @@ export default function ProyectosPage() {
 
   const equipoOptions = useMemo(() => equipos.map((e) => ({ id: e.id, label: e.nombre })), [equipos]);
   const personaOptions = useMemo(() => personas.map((p) => ({ id: p.id, label: p.nombre })), [personas]);
+  const espacioJiraOptions = useMemo(() => {
+    const opciones = espaciosJira.map((e) => ({ id: e.clave, label: `${e.clave} · ${e.nombre}` }));
+    if (form.jiraClaveProyecto && !espaciosJira.some((e) => e.clave === form.jiraClaveProyecto)) {
+      opciones.unshift({ id: form.jiraClaveProyecto, label: `${form.jiraClaveProyecto} (fuera del catálogo)` });
+    }
+    return opciones;
+  }, [espaciosJira, form.jiraClaveProyecto]);
 
   const openCreate = () => {
     setForm(EMPTY_FORM);
@@ -285,10 +296,19 @@ export default function ProyectosPage() {
             <Label>Fecha fin estimada</Label>
             <Input />
           </TextField>
-          <TextField value={form.jiraClaveProyecto} onChange={(v) => setForm((f) => ({ ...f, jiraClaveProyecto: v }))}>
-            <Label>Jira · clave de proyecto</Label>
-            <Input placeholder="SIGEX" />
-          </TextField>
+          <SelectField
+            emptyOption="Sin espacio Jira asociado"
+            label="Jira · espacio del catálogo"
+            options={espacioJiraOptions}
+            value={form.jiraClaveProyecto || null}
+            onChange={(v) =>
+              setForm((f) => ({
+                ...f,
+                jiraClaveProyecto: v ?? "",
+                jiraProyectoUrl: v && jiraBaseUrl ? `${jiraBaseUrl.replace(/\/$/, "")}/browse/${v}` : f.jiraProyectoUrl,
+              }))
+            }
+          />
           <TextField value={form.jiraProyectoUrl} onChange={(v) => setForm((f) => ({ ...f, jiraProyectoUrl: v }))}>
             <Label>Jira · tablero del proyecto (URL)</Label>
             <Input placeholder="https://empresa.atlassian.net/jira/software/projects/SIGEX/boards/1" />

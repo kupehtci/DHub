@@ -120,10 +120,23 @@ sin cambiar el modelo de datos.
 
 ## Integración con Jira
 
-El MVP funciona con datos propios. Cada proyecto admite un **enlace manual** a su
-tablero de Jira (clave y URL) y cada tarea a su ticket de Jira (clave y URL). La
-integración automática mediante la REST API de Jira queda prevista para una fase
-posterior.
+Conexión real con **Jira Cloud** (REST API v3), configurable desde la propia
+aplicación en **Configuración → Integración con Jira** (URL, email del usuario de
+servicio y API token; incluye botón "Probar conexión"). Los datos se guardan en la
+base de datos, no en variables de entorno, y el token nunca se devuelve en claro al
+frontend (se muestra enmascarado). Cada proyecto puede enlazarse a un **espacio Jira
+del catálogo propio** (`/api/jira/espacios`, sembrado una vez con los espacios de la
+organización) en vez de escribir la clave a mano, y cada tarea con un ticket de Jira
+permite **"Comprobar en Jira"** para traer en vivo su resumen, estado y asignado
+reales (`GET /api/jira/ticket/{clave}`).
+
+Además, el estado real de cada ticket enlazado se muestra como una pequeña etiqueta
+"en vivo" en la tabla de Tareas, en los tableros Kanban y en la ficha de proyecto,
+sin tener que pulsar nada: el backend mantiene una caché por ticket con un TTL de 5
+minutos (`POST /api/jira/tickets/lote`) para no saturar la API de Jira. Cada ficha de
+proyecto con un espacio Jira asociado tiene además una pestaña **Jira** que trae de
+golpe, en directo, todos los tickets abiertos (o todos) de ese espacio mediante una
+búsqueda JQL (`GET /api/jira/proyectos/{clave}/tickets`).
 
 ---
 

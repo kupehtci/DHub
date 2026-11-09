@@ -1,8 +1,9 @@
 import { Button, Description, Input, Label, TextArea, TextField } from "@heroui/react";
+import axios from "axios";
 import { useEffect, useState } from "react";
-import { notasApi, tareasApi } from "../lib/api";
+import { jiraApi, notasApi, tareasApi } from "../lib/api";
 import { PRIORIDAD_LABEL, TIPO_TAREA_LABEL } from "../lib/format";
-import { ESTADOS_TAREA, type EstadoTarea, type Nota, type Persona, type Prioridad, type Proyecto, type Tarea, type TipoTarea } from "../types";
+import { ESTADOS_TAREA, type EstadoTarea, type JiraTicketInfo, type Nota, type Persona, type Prioridad, type Proyecto, type Tarea, type TipoTarea } from "../types";
 import { FormModal } from "./FormModal";
 import { MultiSelectField } from "./MultiSelectField";
 import { SelectField } from "./SelectField";
@@ -84,6 +85,10 @@ export function TareaFormModal({
   const [todasLasTareas, setTodasLasTareas] = useState<Tarea[]>([]);
   const [relacionadasIds, setRelacionadasIds] = useState<string[]>([]);
 
+  const [jiraInfo, setJiraInfo] = useState<JiraTicketInfo | null>(null);
+  const [jiraError, setJiraError] = useState<string | null>(null);
+  const [checkingJira, setCheckingJira] = useState(false);
+
   const cargarComentarios = (tareaId: string) => {
     notasApi.listar({ tareaId }).then((r) => setComentarios(r.data.filter((n) => n.tipo === "Comentario")));
   };
@@ -118,8 +123,24 @@ export function TareaFormModal({
     }
     setNuevoComentario("");
     setError(null);
+    setJiraInfo(null);
+    setJiraError(null);
     tareasApi.listar().then((r) => setTodasLasTareas(r.data));
   }, [isOpen, tarea, defaultProyectoId]);
+
+  const handleComprobarJira = async () => {
+    setJiraInfo(null);
+    setJiraError(null);
+    setCheckingJira(true);
+    try {
+      const { data } = await jiraApi.ticket(form.jiraTicketClave);
+      setJiraInfo(data);
+    } catch (err) {
+      setJiraError(axios.isAxiosError(err) && err.response?.data?.mensaje ? (err.response.data.mensaje as string) : "No se ha podido consultar el ticket en Jira.");
+    } finally {
+      setCheckingJira(false);
+    }
+  };
 
   const isBloqueada = form.estado === "Bloqueada";
   const isHecha = form.estado === "Hecha";
@@ -245,15 +266,41 @@ export function TareaFormModal({
           <Label>Fecha objetivo</Label>
           <Input />
         </TextField>
-        <TextField value={form.jiraTicketClave} onChange={(v) => setForm((f) => ({ ...f, jiraTicketClave: v }))}>
+        <TextField
+          value={form.jiraTicketClave}
+          onChange={(v) => {
+            setForm((f) => ({ ...f, jiraTicketClave: v }));
+            setJiraInfo(null);
+            setJiraError(null);
+          }}
+        >
           <Label>Jira · clave del ticket</Label>
-          <Input placeholder="SIGEX-101" />
+          <Input placeholder="DESA0554-101" />
         </TextField>
         <TextField value={form.jiraTicketUrl} onChange={(v) => setForm((f) => ({ ...f, jiraTicketUrl: v }))}>
           <Label>Jira · enlace del ticket</Label>
-          <Input placeholder="https://empresa.atlassian.net/browse/SIGEX-101" />
-          <Description>Enlace manual. La integración automática con la API de Jira llegará más adelante.</Description>
+          <Input placeholder="https://empresa.atlassian.net/browse/DESA0554-101" />
         </TextField>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div>
+          <Button isDisabled={!form.jiraTicketClave} isPending={checkingJira} size="sm" variant="secondary" onPress={handleComprobarJira}>
+            Comprobar en Jira
+          </Button>
+        </div>
+        {jiraError ? <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{jiraError}</p> : null}
+        {jiraInfo ? (
+          <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface-secondary/60 px-3 py-2 text-sm">
+            <p className="font-medium text-foreground">{jiraInfo.resumen}</p>
+            <p className="text-xs text-muted">
+              Estado: {jiraInfo.estado} · Asignado: {jiraInfo.asignadoNombre ?? "sin asignar"}
+            </p>
+            <a className="text-xs text-link hover:underline" href={jiraInfo.url} rel="noreferrer" target="_blank">
+              Abrir en Jira ↗
+            </a>
+          </div>
+        ) : null}
       </div>
 
       <MultiSelectField

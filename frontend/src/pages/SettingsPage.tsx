@@ -1,8 +1,9 @@
 import { Button, Card, Description, Input, Label, TextField, useTheme } from "@heroui/react";
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { authApi } from "../lib/api";
+import { authApi, jiraApi } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { formatFechaHora } from "../lib/format";
 
 type Mensaje = { tipo: "ok" | "error"; texto: string };
 
@@ -35,11 +36,31 @@ export default function SettingsPage() {
   const [passwordMsg, setPasswordMsg] = useState<Mensaje | null>(null);
   const [savingPassword, setSavingPassword] = useState(false);
 
+  const [jiraForm, setJiraForm] = useState({ baseUrl: "", email: "", apiToken: "" });
+  const [jiraTokenEnmascarado, setJiraTokenEnmascarado] = useState<string | null>(null);
+  const [jiraFecha, setJiraFecha] = useState<string | null>(null);
+  const [jiraMsg, setJiraMsg] = useState<Mensaje | null>(null);
+  const [savingJira, setSavingJira] = useState(false);
+  const [testingJira, setTestingJira] = useState(false);
+  const [loadingJira, setLoadingJira] = useState(true);
+
+  const cargarJira = () => {
+    jiraApi
+      .configuracion()
+      .then((r) => {
+        setJiraForm({ baseUrl: r.data.baseUrl ?? "", email: r.data.email ?? "", apiToken: "" });
+        setJiraTokenEnmascarado(r.data.tokenEnmascarado);
+        setJiraFecha(r.data.fechaActualizacion);
+      })
+      .finally(() => setLoadingJira(false));
+  };
+
   useEffect(() => {
     authApi
       .me()
       .then((r) => setPerfil({ nombreUsuario: r.data.nombreUsuario, nombreCompleto: r.data.nombreCompleto, email: r.data.email ?? "" }))
       .finally(() => setLoadingPerfil(false));
+    cargarJira();
   }, []);
 
   const handleGuardarPerfil = async () => {
@@ -79,6 +100,47 @@ export default function SettingsPage() {
       setPasswordMsg({ tipo: "error", texto: extraerError(err, "No se ha podido cambiar la contraseña.") });
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const handleGuardarJira = async () => {
+    setJiraMsg(null);
+    if (!jiraForm.baseUrl || !jiraForm.email) {
+      setJiraMsg({ tipo: "error", texto: "Indica la URL de Jira y el email." });
+      return;
+    }
+    setSavingJira(true);
+    try {
+      const { data } = await jiraApi.actualizarConfiguracion({
+        baseUrl: jiraForm.baseUrl,
+        email: jiraForm.email,
+        apiToken: jiraForm.apiToken || null,
+      });
+      setJiraForm((f) => ({ ...f, apiToken: "" }));
+      setJiraTokenEnmascarado(data.tokenEnmascarado);
+      setJiraFecha(data.fechaActualizacion);
+      setJiraMsg({ tipo: "ok", texto: "Conexión con Jira guardada correctamente." });
+    } catch (err) {
+      setJiraMsg({ tipo: "error", texto: extraerError(err, "No se ha podido guardar la conexión con Jira.") });
+    } finally {
+      setSavingJira(false);
+    }
+  };
+
+  const handleProbarJira = async () => {
+    setJiraMsg(null);
+    if (!jiraForm.baseUrl || !jiraForm.email || !jiraForm.apiToken) {
+      setJiraMsg({ tipo: "error", texto: "Escribe la URL, el email y el API token para probar la conexión." });
+      return;
+    }
+    setTestingJira(true);
+    try {
+      const { data } = await jiraApi.probarConexion({ baseUrl: jiraForm.baseUrl, email: jiraForm.email, apiToken: jiraForm.apiToken });
+      setJiraMsg({ tipo: data.ok ? "ok" : "error", texto: data.mensaje });
+    } catch (err) {
+      setJiraMsg({ tipo: "error", texto: extraerError(err, "No se ha podido probar la conexión.") });
+    } finally {
+      setTestingJira(false);
     }
   };
 
@@ -162,14 +224,43 @@ export default function SettingsPage() {
         </Card.Content>
       </Card>
 
-      <Card className="max-w-lg gap-2">
+      <Card className="max-w-lg gap-4">
         <Card.Header>
           <Card.Title>Integración con Jira</Card.Title>
           <Card.Description>
-            Cada tarea y proyecto admite un enlace manual a su ticket o tablero de Jira. La integración
-            automática mediante la REST API de Jira está prevista para una fase posterior del proyecto.
+            Conexión con Jira Cloud para traer el estado real de los tickets enlazados. Usa un usuario de
+            servicio y su API token (Jira → Configuración de cuenta → Seguridad → Crear y gestionar tokens API).
           </Card.Description>
         </Card.Header>
+        <Card.Content className="flex flex-col gap-4">
+          <Aviso mensaje={jiraMsg} />
+          <TextField isDisabled={loadingJira} value={jiraForm.baseUrl} onChange={(v) => setJiraForm((f) => ({ ...f, baseUrl: v }))}>
+            <Label>URL de Jira Cloud</Label>
+            <Input placeholder="https://tuempresa.atlassian.net" />
+          </TextField>
+          <TextField isDisabled={loadingJira} type="email" value={jiraForm.email} onChange={(v) => setJiraForm((f) => ({ ...f, email: v }))}>
+            <Label>Email del usuario de servicio</Label>
+            <Input placeholder="integraciones@tuempresa.com" />
+          </TextField>
+          <TextField isDisabled={loadingJira} type="password" value={jiraForm.apiToken} onChange={(v) => setJiraForm((f) => ({ ...f, apiToken: v }))}>
+            <Label>API token</Label>
+            <Input placeholder={jiraTokenEnmascarado ? jiraTokenEnmascarado : "Pega aquí tu API token"} />
+            <Description>
+              {jiraTokenEnmascarado
+                ? "Ya hay un token guardado. Déjalo en blanco para conservarlo, o escribe uno nuevo para sustituirlo."
+                : "Se guarda solo en tu base de datos, nunca se envía a ningún sitio salvo a Jira."}
+            </Description>
+          </TextField>
+          {jiraFecha ? <p className="text-xs text-muted">Última actualización: {formatFechaHora(jiraFecha)}</p> : null}
+          <div className="flex justify-end gap-2">
+            <Button isDisabled={loadingJira} isPending={testingJira} variant="secondary" onPress={handleProbarJira}>
+              Probar conexión
+            </Button>
+            <Button isDisabled={loadingJira} isPending={savingJira} onPress={handleGuardarJira}>
+              Guardar
+            </Button>
+          </div>
+        </Card.Content>
       </Card>
     </div>
   );

@@ -204,6 +204,29 @@ export interface Evento {
   personaNombre: string | null;
 }
 
+export interface JiraEspacio {
+  id: string;
+  nombre: string;
+  clave: string;
+}
+
+export interface JiraConfiguracion {
+  configurado: boolean;
+  baseUrl: string | null;
+  email: string | null;
+  tokenEnmascarado: string | null;
+  fechaActualizacion: string | null;
+}
+
+export interface JiraTicketInfo {
+  clave: string;
+  resumen: string;
+  estado: string;
+  asignadoNombre: string | null;
+  actualizado: string | null;
+  url: string;
+}
+
 export interface Vacacion {
   id: string;
   personaId: string;
