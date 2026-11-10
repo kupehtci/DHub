@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { jiraApi, notasApi, tareasApi } from "../lib/api";
 import { PRIORIDAD_LABEL, TIPO_TAREA_LABEL } from "../lib/format";
 import { ESTADOS_TAREA, type EstadoTarea, type JiraTicketInfo, type Nota, type Persona, type Prioridad, type Proyecto, type Tarea, type TipoTarea } from "../types";
+import { DateRangeField } from "./DateRangeField";
 import { FormModal } from "./FormModal";
 import { SearchableMultiSelect } from "./SearchableMultiSelect";
+import { SearchableSelect } from "./SearchableSelect";
 import { SelectField } from "./SelectField";
 
 const TIPOS: TipoTarea[] = ["HistoriaUsuario", "Bug", "Tarea", "Mejora", "Soporte"];
@@ -249,14 +251,23 @@ export function TareaFormModal({
         <TextArea rows={3} />
       </TextField>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <SelectField
+        <SearchableSelect
           isRequired
           label="Proyecto"
           options={proyectos.map((p) => ({ id: p.id, label: `${p.codigo} · ${p.nombre}` }))}
-          value={form.proyectoId}
+          value={form.proyectoId || null}
           onChange={(v) => setForm((f) => ({ ...f, proyectoId: v ?? "" }))}
+          placeholder="Busca por código o nombre…"
+          emptyText="No hay proyectos que coincidan"
         />
-        <SelectField emptyOption="Sin responsable" label="Responsable" options={personas.map((p) => ({ id: p.id, label: p.nombre }))} value={form.responsableId} onChange={(v) => setForm((f) => ({ ...f, responsableId: v }))} />
+        <SearchableSelect
+          label="Responsable"
+          options={personas.map((p) => ({ id: p.id, label: p.nombre }))}
+          value={form.responsableId}
+          onChange={(v) => setForm((f) => ({ ...f, responsableId: v }))}
+          placeholder="Sin responsable · escribe para buscar…"
+          emptyText="No hay personas que coincidan"
+        />
         <SelectField label="Tipo" options={TIPOS.map((t) => ({ id: t, label: TIPO_TAREA_LABEL[t] }))} value={form.tipo} onChange={(v) => setForm((f) => ({ ...f, tipo: (v as TipoTarea) ?? "Tarea" }))} />
         <SelectField label="Prioridad" options={PRIORIDADES.map((p) => ({ id: p, label: PRIORIDAD_LABEL[p] }))} value={form.prioridad} onChange={(v) => setForm((f) => ({ ...f, prioridad: (v as Prioridad) ?? "Media" }))} />
         <SelectField
@@ -271,14 +282,6 @@ export function TareaFormModal({
         <TextField value={form.estimacionHoras} onChange={(v) => setForm((f) => ({ ...f, estimacionHoras: v }))}>
           <Label>Estimación (horas)</Label>
           <Input inputMode="decimal" />
-        </TextField>
-        <TextField type="date" value={form.fechaInicio} onChange={(v) => setForm((f) => ({ ...f, fechaInicio: v }))}>
-          <Label>Fecha inicio</Label>
-          <Input />
-        </TextField>
-        <TextField type="date" value={form.fechaObjetivo} onChange={(v) => setForm((f) => ({ ...f, fechaObjetivo: v }))}>
-          <Label>Fecha objetivo</Label>
-          <Input />
         </TextField>
         <TextField
           value={form.jiraTicketClave}
@@ -295,6 +298,14 @@ export function TareaFormModal({
           <Label>Jira · enlace del ticket</Label>
           <Input placeholder="https://empresa.atlassian.net/browse/DESA0554-101" />
         </TextField>
+        <div className="md:col-span-2">
+          <DateRangeField
+            label="Fecha inicio · fecha objetivo"
+            start={form.fechaInicio}
+            end={form.fechaObjetivo}
+            onChange={(fechaInicio, fechaObjetivo) => setForm((f) => ({ ...f, fechaInicio, fechaObjetivo }))}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -335,12 +346,13 @@ export function TareaFormModal({
             <Label>Motivo del bloqueo</Label>
             <TextArea rows={2} />
           </TextField>
-          <SelectField
+          <SearchableSelect
             isRequired
             label="Responsable del desbloqueo"
             options={personas.map((p) => ({ id: p.id, label: p.nombre }))}
             value={form.responsableBloqueoId}
             onChange={(v) => setForm((f) => ({ ...f, responsableBloqueoId: v }))}
+            emptyText="No hay personas que coincidan"
           />
           <TextField isRequired type="date" value={form.fechaRevisionBloqueo} onChange={(v) => setForm((f) => ({ ...f, fechaRevisionBloqueo: v }))}>
             <Label>Fecha de revisión</Label>

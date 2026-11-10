@@ -1,10 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { normalizar } from "../lib/search";
 import type { SelectOption } from "./SelectField";
 
 const MAX_RESULTADOS = 50;
-
-// Normaliza para buscar sin distinguir mayúsculas ni tildes.
-const normalizar = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 // Selector múltiple con campo de búsqueda: escribe para filtrar las opciones, pulsa
 // Enter o haz clic para añadir/quitar, y quita las seleccionadas desde sus chips.
