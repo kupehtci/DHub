@@ -29,6 +29,8 @@ interface NavLinkItem {
   label: string;
   icon: IconType;
   end?: boolean;
+  // Rutas hermanas que no deben marcar este enlace aunque cuelguen de él (p. ej. /proyectos/gantt).
+  excluir?: string[];
 }
 
 interface NavGroupItem {
@@ -44,7 +46,15 @@ const NAV_ITEMS: NavEntry[] = [
   { to: "/", label: "Dashboard", icon: IconDashboard, end: true },
   { to: "/personas", label: "Personas", icon: IconUsers },
   { to: "/equipos", label: "Equipos", icon: IconTeam },
-  { to: "/proyectos", label: "Proyectos", icon: IconFolder },
+  {
+    group: "proyectos",
+    label: "Proyectos",
+    icon: IconFolder,
+    children: [
+      { to: "/proyectos", label: "Lista de proyectos", icon: IconFolder, excluir: ["/proyectos/gantt"] },
+      { to: "/proyectos/gantt", label: "Gantt de proyectos", icon: IconGantt, end: true },
+    ],
+  },
   {
     group: "tareas",
     label: "Tareas",
@@ -78,9 +88,11 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
       : "text-muted hover:bg-surface-secondary hover:text-foreground"
   }`;
 
-function SidebarLink({ to, label, icon: Icon, end }: NavLinkItem) {
+function SidebarLink({ to, label, icon: Icon, end, excluir }: NavLinkItem) {
+  const { pathname } = useLocation();
+  const excluida = excluir?.some((ruta) => matchPath({ path: ruta, end: false }, pathname)) ?? false;
   return (
-    <NavLink to={to} end={end} className={linkClass}>
+    <NavLink to={to} end={end} className={({ isActive }) => linkClass({ isActive: isActive && !excluida })}>
       <Icon />
       {label}
     </NavLink>

@@ -100,3 +100,11 @@ public enum TipoEvento
     Hito,
     Otro
 }
+
+public enum AmbitoFestivo
+{
+    Nacional,
+    Autonomico,
+    Local,
+    Otro
+}

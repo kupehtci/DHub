@@ -18,6 +18,7 @@ import TableroProyectoPage from "./pages/TableroProyectoPage";
 import TableroUsuariosPage from "./pages/TableroUsuariosPage";
 import TareasPage from "./pages/TareasPage";
 import TareasGanttPage from "./pages/TareasGanttPage";
+import ProyectosGanttPage from "./pages/ProyectosGanttPage";
 import VacacionesPage from "./pages/VacacionesPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/equipos" element={<EquiposPage />} />
         <Route path="/equipos/:id" element={<EquipoDetallePage />} />
         <Route path="/proyectos" element={<ProyectosPage />} />
+        <Route path="/proyectos/gantt" element={<ProyectosGanttPage />} />
         <Route path="/proyectos/:id" element={<ProyectoDetallePage />} />
         <Route path="/tareas" element={<TareasPage />} />
         <Route path="/tareas/gantt" element={<TareasGanttPage />} />

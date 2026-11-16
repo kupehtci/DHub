@@ -1,4 +1,5 @@
 import type {
+  AmbitoFestivo,
   EstadoEquipo,
   EstadoHito,
   EstadoPersona,
@@ -208,3 +209,10 @@ export function formatFechaHora(value: string | null | undefined): string {
   if (!value) return "—";
   return `${formatFecha(value)} ${formatHora(value)}`.trim();
 }
+
+export const AMBITO_FESTIVO_LABEL: Record<AmbitoFestivo, string> = {
+  Nacional: "Nacional",
+  Autonomico: "Autonómico / regional",
+  Local: "Local",
+  Otro: "Otro",
+};

@@ -131,6 +131,35 @@ namespace DHub.Infrastructure.Data.Migrations
                     b.ToTable("Eventos", (string)null);
                 });
 
+            modelBuilder.Entity("DHub.Domain.Entities.Festivo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Ambito")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comentario")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateOnly>("FechaFin")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("FechaInicio")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Festivos", (string)null);
+                });
+
             modelBuilder.Entity("DHub.Domain.Entities.Hito", b =>
                 {
                     b.Property<Guid>("Id")
@@ -564,6 +593,21 @@ namespace DHub.Infrastructure.Data.Migrations
                     b.ToTable("EquipoPersona", (string)null);
                 });
 
+            modelBuilder.Entity("FestivoPersona", b =>
+                {
+                    b.Property<Guid>("FestivoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PersonasId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("FestivoId", "PersonasId");
+
+                    b.HasIndex("PersonasId");
+
+                    b.ToTable("FestivoPersona", (string)null);
+                });
+
             modelBuilder.Entity("DHub.Domain.Entities.Equipo", b =>
                 {
                     b.HasOne("DHub.Domain.Entities.Persona", "LiderTecnico")
@@ -748,6 +792,21 @@ namespace DHub.Infrastructure.Data.Migrations
                     b.HasOne("DHub.Domain.Entities.Persona", null)
                         .WithMany()
                         .HasForeignKey("MiembrosId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FestivoPersona", b =>
+                {
+                    b.HasOne("DHub.Domain.Entities.Festivo", null)
+                        .WithMany()
+                        .HasForeignKey("FestivoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DHub.Domain.Entities.Persona", null)
+                        .WithMany()
+                        .HasForeignKey("PersonasId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

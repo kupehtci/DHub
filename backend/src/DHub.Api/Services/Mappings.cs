@@ -155,6 +155,17 @@ public static class Mappings
         v.Comentario
     );
 
+    public static FestivoDto ToDto(this Festivo f) => new(
+        f.Id,
+        f.Nombre,
+        f.Ambito,
+        f.FechaInicio,
+        f.FechaFin,
+        f.FechaFin.DayNumber - f.FechaInicio.DayNumber + 1,
+        f.Comentario,
+        f.Personas.Select(p => p.Id).ToList()
+    );
+
     public static NotaDto ToDto(this Nota n) => new(
         n.Id,
         n.Fecha,

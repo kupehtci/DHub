@@ -1,5 +1,21 @@
 @import "@heroui/styles";
 
+/* Festivos en el calendario de vacaciones: verde claro, con variante oscura. */
+:root {
+  --festivo: #d9f5e3;
+  --festivo-borde: #34c26f;
+}
+.dark,
+[data-theme="dark"] {
+  --festivo: #1d4a31;
+  --festivo-borde: #3fbf73;
+}
+
+@theme inline {
+  --color-festivo: var(--festivo);
+  --color-festivo-borde: var(--festivo-borde);
+}
+
 html, body, #root {
   height: 100%;
 }

@@ -1,5 +1,7 @@
 import axios from "axios";
 import type {
+  AmbitoFestivo,
+  Festivo,
   Dashboard,
   Equipo,
   EquipoDetalle,
@@ -233,4 +235,31 @@ export const vacacionesApi = {
   crear: (data: VacacionPayload & { personaId: string }) => api.post<Vacacion>("/api/vacaciones", data),
   actualizar: (id: string, data: VacacionPayload) => api.put(`/api/vacaciones/${id}`, data),
   eliminar: (id: string) => api.delete(`/api/vacaciones/${id}`),
+  // Descarga el Excel con la cabecera de autenticación (window.open no la enviaría).
+  exportar: async (f: { desde?: string; hasta?: string; equipoId?: string } = {}) => {
+    const r = await api.get<Blob>(`/api/vacaciones/export${qs(f)}`, { responseType: "blob" });
+    const nombre = /filename="?([^";]+)"?/.exec(String(r.headers["content-disposition"] ?? ""))?.[1] ?? "vacaciones.xlsx";
+    const url = URL.createObjectURL(r.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+};
+
+export interface FestivoPayload {
+  nombre: string;
+  ambito: AmbitoFestivo;
+  fechaInicio: string;
+  fechaFin: string;
+  comentario: string | null;
+  personaIds: string[];
+}
+
+export const festivosApi = {
+  listar: (f: VacacionFiltros = {}) => api.get<Festivo[]>(`/api/festivos${qs(f)}`),
+  crear: (data: FestivoPayload) => api.post<Festivo>("/api/festivos", data),
+  actualizar: (id: string, data: FestivoPayload) => api.put(`/api/festivos/${id}`, data),
+  eliminar: (id: string) => api.delete(`/api/festivos/${id}`),
 };

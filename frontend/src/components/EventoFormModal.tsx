@@ -1,10 +1,13 @@
-import { Button, Input, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Input, Label, TextField } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { eventosApi } from "../lib/api";
 import { TIPO_EVENTO_LABEL } from "../lib/format";
 import type { Equipo, Evento, Persona, Proyecto, TipoEvento } from "../types";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { EventoFechasField } from "./EventoFechasField";
 import { FormModal } from "./FormModal";
+import { MarkdownEditor } from "./MarkdownEditor";
+import { SearchableSelect } from "./SearchableSelect";
 import { SelectField } from "./SelectField";
 
 const TIPOS: TipoEvento[] = ["Reunion", "Entrega", "Hito", "Otro"];
@@ -88,6 +91,8 @@ export function EventoFormModal({
   }, [isOpen, evento, defaultFechaInicio]);
 
   const handleSave = async () => {
+    // El propio campo de fechas ya avisa del error; aquí solo se evita guardarlo.
+    if (!form.fechaInicio || (form.fechaFin && form.fechaFin < form.fechaInicio)) return;
     setSaving(true);
     try {
       const payload = {
@@ -127,6 +132,8 @@ export function EventoFormModal({
       <FormModal
         isOpen={isOpen}
         onOpenChange={onOpenChange}
+        size="lg"
+        dialogClassName="sm:max-w-3xl"
         title={evento ? "Editar evento" : "Nuevo evento"}
         footer={
           <>
@@ -148,24 +155,39 @@ export function EventoFormModal({
           <Label>Título</Label>
           <Input placeholder="Comité de seguimiento..." />
         </TextField>
-        <TextField value={form.descripcion} onChange={(v) => setForm((f) => ({ ...f, descripcion: v }))}>
-          <Label>Descripción</Label>
-          <TextArea rows={2} />
-        </TextField>
         <SelectField label="Tipo" options={TIPOS.map((t) => ({ id: t, label: TIPO_EVENTO_LABEL[t] }))} value={form.tipo} onChange={(v) => setForm((f) => ({ ...f, tipo: (v as TipoEvento) ?? "Reunion" }))} />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <TextField isRequired type="datetime-local" value={form.fechaInicio} onChange={(v) => setForm((f) => ({ ...f, fechaInicio: v }))}>
-            <Label>Inicio</Label>
-            <Input />
-          </TextField>
-          <TextField type="datetime-local" value={form.fechaFin} onChange={(v) => setForm((f) => ({ ...f, fechaFin: v }))}>
-            <Label>Fin (opcional)</Label>
-            <Input />
-          </TextField>
+        <EventoFechasField
+          inicio={form.fechaInicio}
+          fin={form.fechaFin}
+          onChange={(fechaInicio, fechaFin) => setForm((f) => ({ ...f, fechaInicio, fechaFin }))}
+        />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <SearchableSelect
+            label="Proyecto"
+            options={proyectos.map((p) => ({ id: p.id, label: `${p.codigo} · ${p.nombre}` }))}
+            value={form.proyectoId}
+            onChange={(v) => setForm((f) => ({ ...f, proyectoId: v }))}
+            placeholder="Ninguno"
+            emptyText="No hay proyectos que coincidan"
+          />
+          <SearchableSelect
+            label="Equipo"
+            options={equipos.map((e) => ({ id: e.id, label: e.nombre }))}
+            value={form.equipoId}
+            onChange={(v) => setForm((f) => ({ ...f, equipoId: v }))}
+            placeholder="Ninguno"
+            emptyText="No hay equipos que coincidan"
+          />
+          <SearchableSelect
+            label="Persona"
+            options={personas.map((p) => ({ id: p.id, label: p.nombre }))}
+            value={form.personaId}
+            onChange={(v) => setForm((f) => ({ ...f, personaId: v }))}
+            placeholder="Ninguna"
+            emptyText="No hay personas que coincidan"
+          />
         </div>
-        <SelectField emptyOption="Ninguno" label="Proyecto" options={proyectos.map((p) => ({ id: p.id, label: `${p.codigo} · ${p.nombre}` }))} value={form.proyectoId} onChange={(v) => setForm((f) => ({ ...f, proyectoId: v }))} />
-        <SelectField emptyOption="Ninguno" label="Equipo" options={equipos.map((e) => ({ id: e.id, label: e.nombre }))} value={form.equipoId} onChange={(v) => setForm((f) => ({ ...f, equipoId: v }))} />
-        <SelectField emptyOption="Ninguna" label="Persona" options={personas.map((p) => ({ id: p.id, label: p.nombre }))} value={form.personaId} onChange={(v) => setForm((f) => ({ ...f, personaId: v }))} />
+        <MarkdownEditor label="Descripción / notas" value={form.descripcion} onChange={(v) => setForm((f) => ({ ...f, descripcion: v }))} />
       </FormModal>
 
       <ConfirmDialog

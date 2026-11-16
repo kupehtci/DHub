@@ -237,6 +237,19 @@ export interface Vacacion {
   comentario: string | null;
 }
 
+export type AmbitoFestivo = "Nacional" | "Autonomico" | "Local" | "Otro";
+
+export interface Festivo {
+  id: string;
+  nombre: string;
+  ambito: AmbitoFestivo;
+  fechaInicio: string;
+  fechaFin: string;
+  dias: number;
+  comentario: string | null;
+  personaIds: string[];
+}
+
 export interface Dashboard {
   proyectosActivos: number;
   proyectosEnRiesgo: number;
