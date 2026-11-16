@@ -183,3 +183,10 @@ export const IconGantt = (p: SVGProps<SVGSVGElement>) => (
     <rect x="8" y="16" width="5" height="2.5" rx="1" />
   </svg>
 );
+
+export const IconFlag = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M5 21V4" />
+    <path d="M5 4h11l-2 4 2 4H5" />
+  </svg>
+);

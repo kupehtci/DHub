@@ -16,7 +16,7 @@ export type ImpactoRiesgo = "Bajo" | "Medio" | "Alto" | "Critico";
 export type ProbabilidadRiesgo = "Baja" | "Media" | "Alta";
 export type EstadoRiesgo = "Identificado" | "EnMitigacion" | "Mitigado" | "Materializado" | "Cerrado";
 export type TipoNota = "Seguimiento" | "Decision" | "Riesgo" | "Bloqueo" | "General" | "Comentario";
-export type TipoEvento = "Reunion" | "Entrega" | "Hito" | "Otro";
+export type TipoEvento = "Reunion" | "Entrega" | "Otro";
 
 export const ESTADOS_TAREA: EstadoTarea[] = [
   "Backlog",
@@ -150,6 +150,17 @@ export interface Hito {
   descripcion: string | null;
 }
 
+// Hito con los datos de su proyecto (listado global de hitos).
+export interface HitoListado extends Hito {
+  proyectoCodigo: string;
+  proyectoNombre: string;
+  proyectoEstado: EstadoProyecto;
+  equipoId: string | null;
+  equipoNombre: string | null;
+  responsableId: string | null;
+  responsableNombre: string | null;
+}
+
 export interface Riesgo {
   id: string;
   proyectoId: string | null;
@@ -263,4 +274,15 @@ export interface Dashboard {
   tareasSinResponsableList: Tarea[];
   riesgosAltosList: Riesgo[];
   proximosHitos: Hito[];
+  proyectosEnRiesgoIds: string[];
+  tareasHoyList: Tarea[];
+  ausenciasHoy: AusenciaHoy[];
+}
+
+export interface AusenciaHoy {
+  personaId: string;
+  personaNombre: string;
+  tipo: "Vacaciones" | "Festivo";
+  detalle: string | null;
+  fechaFin: string;
 }

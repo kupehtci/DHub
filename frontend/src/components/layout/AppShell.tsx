@@ -7,6 +7,7 @@ import {
   IconChartBar,
   IconChevronRight,
   IconDashboard,
+  IconFlag,
   IconFolder,
   IconGantt,
   IconKanban,
@@ -62,6 +63,7 @@ const NAV_ITEMS: NavEntry[] = [
     children: [
       { to: "/tareas", label: "Lista de tareas", icon: IconListTasks, end: true },
       { to: "/tareas/gantt", label: "Gantt de tareas", icon: IconGantt, end: true },
+      { to: "/tareas/hitos", label: "Hitos", icon: IconFlag, end: true },
     ],
   },
   {

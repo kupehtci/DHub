@@ -4,6 +4,7 @@ import { riesgosApi } from "../lib/api";
 import { IMPACTO_LABEL, PROBABILIDAD_LABEL } from "../lib/format";
 import type { EstadoRiesgo, ImpactoRiesgo, Persona, ProbabilidadRiesgo, Riesgo, Tarea } from "../types";
 import { FormModal } from "./FormModal";
+import { DatePickerField } from "./DatePickerField";
 import { SelectField } from "./SelectField";
 import type { ProyectoOption } from "./TareaFormModal";
 
@@ -141,14 +142,8 @@ export function RiesgoFormModal({
         <SelectField label="Probabilidad" options={PROBABILIDADES.map((p) => ({ id: p, label: PROBABILIDAD_LABEL[p] }))} value={form.probabilidad} onChange={(v) => setForm((f) => ({ ...f, probabilidad: (v as ProbabilidadRiesgo) ?? "Media" }))} />
         <SelectField emptyOption="Sin responsable" label="Responsable" options={personas.map((p) => ({ id: p.id, label: p.nombre }))} value={form.responsableId} onChange={(v) => setForm((f) => ({ ...f, responsableId: v }))} />
         <SelectField label="Estado" options={ESTADOS.map((e) => ({ id: e, label: e }))} value={form.estado} onChange={(v) => setForm((f) => ({ ...f, estado: (v as EstadoRiesgo) ?? "Identificado" }))} />
-        <TextField isRequired type="date" value={form.fechaDeteccion} onChange={(v) => setForm((f) => ({ ...f, fechaDeteccion: v }))}>
-          <Label>Fecha de detección</Label>
-          <Input />
-        </TextField>
-        <TextField type="date" value={form.fechaRevision} onChange={(v) => setForm((f) => ({ ...f, fechaRevision: v }))}>
-          <Label>Fecha de revisión</Label>
-          <Input />
-        </TextField>
+        <DatePickerField isRequired label="Fecha de detección" value={form.fechaDeteccion} onChange={(v) => setForm((f) => ({ ...f, fechaDeteccion: v }))} />
+        <DatePickerField label="Fecha de revisión" value={form.fechaRevision} onChange={(v) => setForm((f) => ({ ...f, fechaRevision: v }))} />
       </div>
     </FormModal>
   );

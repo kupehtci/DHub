@@ -29,7 +29,7 @@ builder.Services.AddSwaggerGen(options =>
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "DHub API",
-        Version = "v1",
+        Version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "v1",
         Description = "API del panel de coordinación técnica de proyectos y equipos (DHub)."
     });
     options.UseInlineDefinitionsForEnums();

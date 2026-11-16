@@ -15,8 +15,11 @@ public class DashboardController : ControllerBase
     public DashboardController(AppDbContext db) => _db = db;
 
     [HttpGet]
-    public async Task<ActionResult<DashboardDto>> Obtener([FromQuery] Guid? equipoId, [FromQuery] Guid? proyectoId)
+    public async Task<ActionResult<DashboardDto>> Obtener([FromQuery] Guid? equipoId, [FromQuery] Guid? proyectoId, [FromQuery] DateOnly? hoy)
     {
+        // El cliente envía su fecha local para que "hoy" no dependa de la zona horaria del servidor.
+        var fechaHoy = hoy ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
         var proyectosQuery = _db.Proyectos
             .Include(p => p.Responsable).Include(p => p.Equipo).Include(p => p.Tareas).Include(p => p.Riesgos)
             .AsQueryable();
@@ -42,16 +45,44 @@ public class DashboardController : ControllerBase
         var riesgosAltos = riesgos.Where(r => r.Impacto is ImpactoRiesgo.Alto or ImpactoRiesgo.Critico
             && r.Estado != EstadoRiesgo.Cerrado && r.Estado != EstadoRiesgo.Mitigado).OrderByDescending(r => r.Impacto).ToList();
 
-        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
         var proximosHitos = await _db.Hitos
-            .Where(h => proyectoIds.Contains(h.ProyectoId) && h.Estado != EstadoHito.Completado && h.Fecha <= hoy.AddDays(30))
+            .Where(h => proyectoIds.Contains(h.ProyectoId) && h.Estado != EstadoHito.Completado && h.Fecha <= fechaHoy.AddDays(30))
             .OrderBy(h => h.Fecha)
             .ToListAsync();
 
+        var proyectosEnRiesgo = proyectos
+            .Where(p => p.Riesgos.Any(r => r.Impacto is ImpactoRiesgo.Alto or ImpactoRiesgo.Critico && r.Estado != EstadoRiesgo.Cerrado)
+                || p.Tareas.Any(t => t.EsVencida()))
+            .Select(p => p.Id)
+            .ToList();
+
+        var tareasHoy = tareas
+            .Where(t => t.Estado != EstadoTarea.Hecha && t.Estado != EstadoTarea.Cancelada
+                && (t.FechaObjetivo == fechaHoy || t.FechaInicio == fechaHoy))
+            .OrderBy(t => t.FechaObjetivo == fechaHoy ? 0 : 1).ThenByDescending(t => t.Prioridad)
+            .ToList();
+
+        // Ausencias de hoy: personas del equipo filtrado (o todas) de vacaciones o con festivo.
+        var personasQuery = _db.Personas.AsQueryable();
+        if (equipoId.HasValue) personasQuery = personasQuery.Where(p => p.Equipos.Any(e => e.Id == equipoId));
+        var personaIds = await personasQuery.Select(p => p.Id).ToListAsync();
+        var vacacionesHoy = await _db.Vacaciones.Include(v => v.Persona)
+            .Where(v => personaIds.Contains(v.PersonaId) && v.FechaInicio <= fechaHoy && v.FechaFin >= fechaHoy)
+            .ToListAsync();
+        var festivosHoy = await _db.Festivos.Include(f => f.Personas)
+            .Where(f => f.FechaInicio <= fechaHoy && f.FechaFin >= fechaHoy)
+            .ToListAsync();
+        var ausencias = vacacionesHoy
+            .Select(v => new AusenciaHoyDto(v.PersonaId, v.Persona!.Nombre, "Vacaciones", v.Comentario, v.FechaFin))
+            .Concat(festivosHoy.SelectMany(f => f.Personas
+                .Where(p => personaIds.Contains(p.Id))
+                .Select(p => new AusenciaHoyDto(p.Id, p.Nombre, "Festivo", f.Nombre, f.FechaFin))))
+            .OrderBy(a => a.PersonaNombre)
+            .ToList();
+
         var dto = new DashboardDto(
             proyectos.Count(p => p.Estado == EstadoProyecto.EnCurso),
-            proyectos.Count(p => (p.Riesgos.Any(r => r.Impacto is ImpactoRiesgo.Alto or ImpactoRiesgo.Critico && r.Estado != EstadoRiesgo.Cerrado))
-                || p.Tareas.Any(t => t.EsVencida())),
+            proyectosEnRiesgo.Count,
             tareasVencidas.Count,
             tareasBloqueadas.Count,
             tareasSinResponsable.Count,
@@ -61,7 +92,10 @@ public class DashboardController : ControllerBase
             tareasBloqueadas.Select(t => t.ToDto()).ToList(),
             tareasSinResponsable.Select(t => t.ToDto()).ToList(),
             riesgosAltos.Select(r => r.ToDto()).ToList(),
-            proximosHitos.Select(h => h.ToDto()).ToList()
+            proximosHitos.Select(h => h.ToDto()).ToList(),
+            proyectosEnRiesgo,
+            tareasHoy.Select(t => t.ToDto()).ToList(),
+            ausencias
         );
         return dto;
     }

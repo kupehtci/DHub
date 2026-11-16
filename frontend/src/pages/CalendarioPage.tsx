@@ -15,13 +15,14 @@ import { es } from "date-fns/locale";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { EventoFormModal } from "../components/EventoFormModal";
-import { IconChevronLeft, IconChevronRight, IconPlus } from "../components/Icons";
+import { HitoFormModal } from "../components/HitoFormModal";
+import { IconChevronLeft, IconChevronRight, IconFlag, IconPlus } from "../components/Icons";
 import { StatusChip } from "../components/StatusChip";
 import { PrioridadChip } from "../components/PrioridadChip";
 import { PersonaAvatar } from "../components/PersonaAvatar";
-import { equiposApi, eventosApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
-import { ESTADO_TAREA_LABEL, formatHora, TIPO_EVENTO_COLOR, TIPO_EVENTO_LABEL } from "../lib/format";
-import type { Equipo, Evento, Persona, Proyecto, Tarea } from "../types";
+import { equiposApi, eventosApi, hitosApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
+import { ESTADO_HITO_COLOR, ESTADO_HITO_LABEL, ESTADO_TAREA_LABEL, formatHora, TIPO_EVENTO_COLOR, TIPO_EVENTO_LABEL } from "../lib/format";
+import type { Equipo, Evento, HitoListado, Persona, Proyecto, Tarea } from "../types";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -30,6 +31,8 @@ export default function CalendarioPage() {
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => new Date());
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [tareas, setTareas] = useState<Tarea[]>([]);
+  const [hitos, setHitos] = useState<HitoListado[]>([]);
+  const [hitoAbierto, setHitoAbierto] = useState<HitoListado | null>(null);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [equipos, setEquipos] = useState<Equipo[]>([]);
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -57,9 +60,11 @@ export default function CalendarioPage() {
       proyectosApi.listar(),
       equiposApi.listar(),
       personasApi.listar(),
+      hitosApi.listar({ desde: format(inicioGrid, "yyyy-MM-dd"), hasta: format(finGrid, "yyyy-MM-dd") }),
     ])
-      .then(([ev, ta, pr, eq, pe]) => {
+      .then(([ev, ta, pr, eq, pe, hi]) => {
         setEventos(ev.data);
+        setHitos(hi.data);
         setTareas(ta.data);
         setProyectos(pr.data);
         setEquipos(eq.data);
@@ -71,10 +76,12 @@ export default function CalendarioPage() {
   useEffect(cargar, [mes]);
 
   const eventosPorDia = (dia: Date) => eventos.filter((e) => isSameDay(new Date(e.fechaInicio), dia));
+  const hitosPorDia = (dia: Date) => hitos.filter((h) => h.fecha === format(dia, "yyyy-MM-dd"));
   const tareasPorDia = (dia: Date) => tareas.filter((t) => t.fechaObjetivo && isSameDay(new Date(t.fechaObjetivo), dia));
 
   const eventosDelDiaSeleccionado = eventosPorDia(diaSeleccionado).sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
   const tareasDelDiaSeleccionado = tareasPorDia(diaSeleccionado);
+  const hitosDelDiaSeleccionado = hitosPorDia(diaSeleccionado);
 
   const defaultFechaInicio = useMemo(() => {
     const fecha = new Date(diaSeleccionado);
@@ -91,7 +98,7 @@ export default function CalendarioPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Calendario</h1>
-          <p className="text-sm text-muted">Tareas por fecha objetivo y eventos del equipo, día a día.</p>
+          <p className="text-sm text-muted">Eventos, hitos de proyecto y tareas por fecha objetivo, día a día.</p>
         </div>
         <Button onPress={() => setModal({ open: true, evento: null })}>
           <IconPlus />
@@ -130,12 +137,19 @@ export default function CalendarioPage() {
               {dias.map((dia) => {
                 const evs = eventosPorDia(dia);
                 const tas = tareasPorDia(dia);
+                const his = hitosPorDia(dia);
+                // Máximo 3 líneas por día: primero hitos, luego eventos y después tareas.
+                const huecos = 3;
+                const hitosVis = his.slice(0, huecos);
+                const evsVis = evs.slice(0, huecos - hitosVis.length);
+                const tasVis = tas.slice(0, huecos - hitosVis.length - evsVis.length);
+                const resto = his.length + evs.length + tas.length - hitosVis.length - evsVis.length - tasVis.length;
                 const seleccionado = isSameDay(dia, diaSeleccionado);
                 return (
                   <button
                     key={dia.toISOString()}
                     onClick={() => setDiaSeleccionado(dia)}
-                    className={`flex h-24 flex-col gap-1 rounded-lg border p-1.5 text-left transition-colors ${
+                    className={`flex h-28 flex-col gap-1 rounded-lg border p-1.5 text-left transition-colors ${
                       seleccionado ? "border-accent bg-accent-soft/40" : "border-border hover:bg-surface-secondary"
                     } ${!isSameMonth(dia, mes) ? "opacity-40" : ""}`}
                   >
@@ -143,17 +157,23 @@ export default function CalendarioPage() {
                       {format(dia, "d")}
                     </span>
                     <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-                      {evs.slice(0, 2).map((e) => (
+                      {hitosVis.map((h) => (
+                        <span key={h.id} className="flex items-center gap-0.5 truncate rounded bg-success-soft px-1 text-[10px] font-medium text-success">
+                          <IconFlag width={10} height={10} className="shrink-0" />
+                          <span className="truncate">{h.nombre}</span>
+                        </span>
+                      ))}
+                      {evsVis.map((e) => (
                         <span key={e.id} className="truncate rounded bg-accent-soft px-1 text-[10px] text-accent-soft-foreground">
                           {formatHora(e.fechaInicio)} {e.titulo}
                         </span>
                       ))}
-                      {tas.slice(0, Math.max(0, 2 - evs.length)).map((t) => (
+                      {tasVis.map((t) => (
                         <span key={t.id} className="truncate rounded bg-surface-tertiary px-1 text-[10px] text-muted">
                           {t.titulo}
                         </span>
                       ))}
-                      {evs.length + tas.length > 2 ? <span className="text-[10px] text-muted">+{evs.length + tas.length - 2} más</span> : null}
+                      {resto > 0 ? <span className="text-[10px] text-muted">+{resto} más</span> : null}
                     </div>
                   </button>
                 );
@@ -169,6 +189,30 @@ export default function CalendarioPage() {
               <IconPlus />
             </Button>
           </div>
+
+          {hitosDelDiaSeleccionado.length ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium text-muted">HITOS</p>
+              {hitosDelDiaSeleccionado.map((h) => (
+                <button
+                  key={h.id}
+                  onClick={() => setHitoAbierto(h)}
+                  className="flex flex-col gap-1 rounded-lg border border-success/30 bg-success-soft/30 px-3 py-2 text-left text-sm hover:bg-success-soft/60"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 font-medium text-foreground">
+                      <IconFlag width={14} height={14} className="text-success" />
+                      {h.nombre}
+                    </span>
+                    <StatusChip color={ESTADO_HITO_COLOR[h.estado]} label={ESTADO_HITO_LABEL[h.estado]} />
+                  </div>
+                  <span className="text-xs text-muted">
+                    {h.proyectoCodigo} · {h.proyectoNombre}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-2">
             <p className="text-xs font-medium text-muted">EVENTOS</p>
@@ -231,6 +275,14 @@ export default function CalendarioPage() {
         defaultFechaInicio={defaultFechaInicio}
         equipos={equipos}
         personas={personas}
+        proyectos={proyectos}
+        onSaved={cargar}
+      />
+
+      <HitoFormModal
+        isOpen={hitoAbierto !== null}
+        onOpenChange={(open) => !open && setHitoAbierto(null)}
+        hito={hitoAbierto}
         proyectos={proyectos}
         onSaved={cargar}
       />

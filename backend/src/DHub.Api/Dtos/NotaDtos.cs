@@ -38,5 +38,12 @@ public record DashboardDto(
     List<TareaDto> TareasBloqueadasList,
     List<TareaDto> TareasSinResponsableList,
     List<RiesgoDto> RiesgosAltosList,
-    List<HitoDto> ProximosHitos
+    List<HitoDto> ProximosHitos,
+    List<Guid> ProyectosEnRiesgoIds,
+    // Bloque "Hoy": tareas que empiezan o vencen hoy y quién está ausente.
+    List<TareaDto> TareasHoyList,
+    List<AusenciaHoyDto> AusenciasHoy
 );
+
+// Persona que hoy no trabaja, por vacaciones o por un festivo que le afecta.
+public record AusenciaHoyDto(Guid PersonaId, string PersonaNombre, string Tipo, string? Detalle, DateOnly FechaFin);

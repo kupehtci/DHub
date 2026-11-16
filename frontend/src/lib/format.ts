@@ -187,14 +187,12 @@ export function formatHoras(value: number | null | undefined): string {
 export const TIPO_EVENTO_LABEL: Record<TipoEvento, string> = {
   Reunion: "Reunión",
   Entrega: "Entrega",
-  Hito: "Hito",
   Otro: "Otro",
 };
 
 export const TIPO_EVENTO_COLOR: Record<TipoEvento, ChipColor> = {
   Reunion: "accent",
   Entrega: "warning",
-  Hito: "success",
   Otro: "default",
 };
 
@@ -215,4 +213,28 @@ export const AMBITO_FESTIVO_LABEL: Record<AmbitoFestivo, string> = {
   Autonomico: "Autonómico / regional",
   Local: "Local",
   Otro: "Otro",
+};
+
+// Paleta propia del Gantt de tareas. Las barras llevan el texto en blanco, así que se usan tonos
+// fijos de luminosidad media (equivalentes a Tailwind 500-700) con contraste ≥ 4.5:1 frente al
+// blanco y visibles tanto sobre la superficie clara como sobre la oscura. Los tokens semánticos de
+// HeroUI (ESTADO_TAREA_COLOR) no sirven aquí: tres estados caen en el mismo gris, que además pasa a
+// ser casi blanco en modo oscuro, y success / warning son demasiado claros para texto blanco.
+export const ESTADO_TAREA_GANTT_COLOR: Record<EstadoTarea, string> = {
+  Backlog: "#64748b", // slate-500: pendiente de priorizar, neutro azulado
+  Planificada: "#0f766e", // teal-700: comprometida pero sin empezar
+  EnCurso: "#2563eb", // blue-600: mismo tono que el acento (y que "En curso" en el Gantt de proyectos)
+  EnRevision: "#7c3aed", // violet-600: revisión / QA, claramente distinta de curso y de bloqueo
+  Bloqueada: "#dc2626", // red-600: requiere atención
+  Hecha: "#15803d", // green-700: terminada
+  Cancelada: "#71717a", // zinc-500: descartada (además se atenúa y se tacha)
+};
+
+// Marca de prioridad del Gantt de tareas: escala de intensidad creciente que no coincide con
+// ningún color de estado, para que la franja izquierda se distinga sobre cualquier barra.
+export const PRIORIDAD_GANTT_COLOR: Record<Prioridad, string> = {
+  Baja: "#cbd5e1", // slate-300
+  Media: "#fbbf24", // amber-400
+  Alta: "#f97316", // orange-500
+  Critica: "#7f1d1d", // red-900
 };

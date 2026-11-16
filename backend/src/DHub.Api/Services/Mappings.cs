@@ -6,7 +6,9 @@ namespace DHub.Api.Services;
 
 public static class Mappings
 {
-    private static readonly DateOnly Hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+    // Propiedad (no campo estático): si se calculase una sola vez al arrancar, tras pasar
+    // la medianoche las tareas no se marcarían como vencidas hasta reiniciar el backend.
+    private static DateOnly Hoy => DateOnly.FromDateTime(DateTime.UtcNow);
 
     public static bool EsVencida(this Tarea t) =>
         t.FechaObjetivo.HasValue && t.FechaObjetivo.Value < Hoy

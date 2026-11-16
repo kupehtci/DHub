@@ -3,6 +3,7 @@ import { addDays, differenceInCalendarDays, format, isWeekend, parseISO, startOf
 import { es } from "date-fns/locale";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { GanttLegend, LegendColor } from "../components/GanttLegend";
 import { colorForId, initialsFor } from "../components/PersonaAvatar";
 import { SelectField } from "../components/SelectField";
 import { equiposApi, proyectosApi } from "../lib/api";
@@ -320,18 +321,25 @@ export default function ProyectosGanttPage() {
             proyecto para abrir su ficha.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
-          {ESTADOS_PROYECTO.map((e) => (
-            <span key={e} className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: colorBarra(e) }} />
-              {ESTADO_PROYECTO_LABEL[e]}
-            </span>
-          ))}
-          <span className="flex items-center gap-1">
-            <span className="h-2.5 w-4 rounded-sm border border-dashed border-foreground/60" />
-            Sin fecha fin
-          </span>
-        </div>
+        <GanttLegend
+          groups={[
+            {
+              key: "estados",
+              items: [
+                ...ESTADOS_PROYECTO.map((e) => ({
+                  key: e,
+                  label: ESTADO_PROYECTO_LABEL[e],
+                  swatch: <LegendColor color={colorBarra(e)} />,
+                })),
+                {
+                  key: "sin-fin",
+                  label: "Sin fecha fin",
+                  swatch: <span className="h-2.5 w-4 rounded-sm border border-dashed border-foreground/60" />,
+                },
+              ],
+            },
+          ]}
+        />
       </div>
 
       <div className="flex flex-wrap items-end gap-3">

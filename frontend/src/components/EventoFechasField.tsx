@@ -1,5 +1,6 @@
-import { Calendar, DateField, DatePicker, I18nProvider, Label, TimeField } from "@heroui/react";
-import { parseDate, parseTime } from "@internationalized/date";
+import { I18nProvider, Label, TimeField } from "@heroui/react";
+import { parseTime } from "@internationalized/date";
+import { DatePickerField } from "./DatePickerField";
 import { addMinutes, differenceInMinutes, format } from "date-fns";
 
 // Valores en formato local "YYYY-MM-DDTHH:mm" ("" = sin valor), como los de <input type="datetime-local">.
@@ -15,35 +16,6 @@ const DURACIONES: { etiqueta: string; minutos: number }[] = [
   { etiqueta: "2 h", minutos: 120 },
   { etiqueta: "4 h", minutos: 240 },
 ];
-
-function FechaPicker({ label, value, onChange, isRequired }: { label: string; value: string; onChange: (v: string) => void; isRequired?: boolean }) {
-  return (
-    <DatePicker className="w-full" isRequired={isRequired} value={value ? parseDate(value) : null} onChange={(d) => onChange(d ? d.toString() : "")}>
-      <Label>{label}</Label>
-      <DateField.Group fullWidth>
-        <DateField.Input>{(segment) => <DateField.Segment segment={segment} />}</DateField.Input>
-        <DateField.Suffix>
-          <DatePicker.Trigger>
-            <DatePicker.TriggerIndicator />
-          </DatePicker.Trigger>
-        </DateField.Suffix>
-      </DateField.Group>
-      <DatePicker.Popover>
-        <Calendar aria-label={label}>
-          <Calendar.Header>
-            <Calendar.NavButton slot="previous" />
-            <Calendar.Heading />
-            <Calendar.NavButton slot="next" />
-          </Calendar.Header>
-          <Calendar.Grid>
-            <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
-            <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
-          </Calendar.Grid>
-        </Calendar>
-      </DatePicker.Popover>
-    </DatePicker>
-  );
-}
 
 function HoraField({ label, value, onChange, isDisabled }: { label: string; value: string; onChange: (v: string) => void; isDisabled?: boolean }) {
   return (
@@ -87,7 +59,7 @@ export function EventoFechasField({ inicio, fin, onChange }: { inicio: string; f
     <I18nProvider locale="es-ES">
       <div className="flex flex-col gap-3 rounded-xl border border-border p-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_130px]">
-          <FechaPicker isRequired label="Inicio" value={i.fecha} onChange={(d) => cambiarInicio(unir(d, i.hora || "09:00"))} />
+          <DatePickerField isRequired label="Inicio" value={i.fecha} onChange={(d) => cambiarInicio(unir(d, i.hora || "09:00"))} />
           <HoraField isDisabled={!i.fecha} label="Hora" value={i.hora} onChange={(h) => cambiarInicio(unir(i.fecha, h))} />
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -112,7 +84,7 @@ export function EventoFechasField({ inicio, fin, onChange }: { inicio: string; f
           ) : null}
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_130px]">
-          <FechaPicker label="Fin (opcional)" value={f.fecha} onChange={(d) => cambiarFin(d, f.hora)} />
+          <DatePickerField label="Fin (opcional)" value={f.fecha} onChange={(d) => cambiarFin(d, f.hora)} />
           <HoraField isDisabled={!inicio} label="Hora" value={f.hora} onChange={(h) => cambiarFin(f.fecha, h)} />
         </div>
         {finAntesDeInicio ? <p className="text-xs text-danger">El fin es anterior al inicio.</p> : null}

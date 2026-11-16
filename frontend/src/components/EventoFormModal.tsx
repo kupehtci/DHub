@@ -1,16 +1,26 @@
-import { Button, Input, Label, TextField } from "@heroui/react";
+import { Button, Input, Label, TextArea, TextField } from "@heroui/react";
 import { useEffect, useState } from "react";
-import { eventosApi } from "../lib/api";
-import { TIPO_EVENTO_LABEL } from "../lib/format";
-import type { Equipo, Evento, Persona, Proyecto, TipoEvento } from "../types";
+import { eventosApi, proyectosApi } from "../lib/api";
+import { ESTADO_HITO_LABEL, TIPO_EVENTO_LABEL } from "../lib/format";
+import type { Equipo, EstadoHito, Evento, Persona, Proyecto, TipoEvento } from "../types";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { DatePickerField } from "./DatePickerField";
 import { EventoFechasField } from "./EventoFechasField";
 import { FormModal } from "./FormModal";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { SearchableSelect } from "./SearchableSelect";
+import { SegmentedControl } from "./SegmentedControl";
 import { SelectField } from "./SelectField";
 
-const TIPOS: TipoEvento[] = ["Reunion", "Entrega", "Hito", "Otro"];
+// "Hito" no es un tipo de evento: esa pestaña crea un hito de proyecto (con estado y seguimiento).
+type Modo = TipoEvento | "Hito";
+const MODOS: { id: Modo; label: string }[] = [
+  { id: "Reunion", label: TIPO_EVENTO_LABEL.Reunion },
+  { id: "Entrega", label: TIPO_EVENTO_LABEL.Entrega },
+  { id: "Hito", label: "Hito" },
+  { id: "Otro", label: TIPO_EVENTO_LABEL.Otro },
+];
+const ESTADOS_HITO: EstadoHito[] = ["Pendiente", "EnRiesgo", "Retrasado", "Completado"];
 
 function toLocalInput(iso: string | null): string {
   if (!iso) return "";
@@ -27,7 +37,8 @@ function fromLocalInput(value: string): string | null {
 interface FormState {
   titulo: string;
   descripcion: string;
-  tipo: TipoEvento;
+  tipo: Modo;
+  estadoHito: EstadoHito;
   fechaInicio: string;
   fechaFin: string;
   proyectoId: string | null;
@@ -40,6 +51,7 @@ function emptyForm(fechaInicio?: string): FormState {
     titulo: "",
     descripcion: "",
     tipo: "Reunion",
+    estadoHito: "Pendiente",
     fechaInicio: fechaInicio ?? toLocalInput(new Date().toISOString()),
     fechaFin: "",
     proyectoId: null,
@@ -71,6 +83,9 @@ export function EventoFormModal({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const esHito = form.tipo === "Hito";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -79,6 +94,7 @@ export function EventoFormModal({
         titulo: evento.titulo,
         descripcion: evento.descripcion ?? "",
         tipo: evento.tipo,
+        estadoHito: "Pendiente",
         fechaInicio: toLocalInput(evento.fechaInicio),
         fechaFin: toLocalInput(evento.fechaFin),
         proyectoId: evento.proyectoId,
@@ -88,9 +104,34 @@ export function EventoFormModal({
     } else {
       setForm(emptyForm(defaultFechaInicio));
     }
+    setError(null);
   }, [isOpen, evento, defaultFechaInicio]);
 
+  const guardarHito = async () => {
+    if (!form.proyectoId) return setError("Un hito pertenece siempre a un proyecto: selecciona cuál.");
+    if (!form.titulo.trim()) return setError("Indica el nombre del hito.");
+    if (!form.fechaInicio) return setError("Indica la fecha del hito.");
+    setSaving(true);
+    try {
+      await proyectosApi.crearHito(form.proyectoId, {
+        proyectoId: form.proyectoId,
+        nombre: form.titulo.trim(),
+        fecha: form.fechaInicio.slice(0, 10),
+        estado: form.estadoHito,
+        descripcion: form.descripcion || null,
+      });
+      onOpenChange(false);
+      onSaved();
+    } catch {
+      setError("No se ha podido crear el hito.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
+    setError(null);
+    if (esHito) return guardarHito();
     // El propio campo de fechas ya avisa del error; aquí solo se evita guardarlo.
     if (!form.fechaInicio || (form.fechaFin && form.fechaFin < form.fechaInicio)) return;
     setSaving(true);
@@ -98,7 +139,7 @@ export function EventoFormModal({
       const payload = {
         titulo: form.titulo,
         descripcion: form.descripcion || null,
-        tipo: form.tipo,
+        tipo: form.tipo as TipoEvento,
         fechaInicio: fromLocalInput(form.fechaInicio)!,
         fechaFin: fromLocalInput(form.fechaFin),
         proyectoId: form.proyectoId,
@@ -134,7 +175,7 @@ export function EventoFormModal({
         onOpenChange={onOpenChange}
         size="lg"
         dialogClassName="sm:max-w-3xl"
-        title={evento ? "Editar evento" : "Nuevo evento"}
+        title={evento ? "Editar evento" : esHito ? "Nuevo hito" : "Nuevo evento"}
         footer={
           <>
             {evento ? (
@@ -151,43 +192,90 @@ export function EventoFormModal({
           </>
         }
       >
-        <TextField isRequired value={form.titulo} onChange={(v) => setForm((f) => ({ ...f, titulo: v }))}>
-          <Label>Título</Label>
-          <Input placeholder="Comité de seguimiento..." />
-        </TextField>
-        <SelectField label="Tipo" options={TIPOS.map((t) => ({ id: t, label: TIPO_EVENTO_LABEL[t] }))} value={form.tipo} onChange={(v) => setForm((f) => ({ ...f, tipo: (v as TipoEvento) ?? "Reunion" }))} />
-        <EventoFechasField
-          inicio={form.fechaInicio}
-          fin={form.fechaFin}
-          onChange={(fechaInicio, fechaFin) => setForm((f) => ({ ...f, fechaInicio, fechaFin }))}
+        {error ? <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
+        <SegmentedControl
+          ariaLabel="Tipo"
+          // Un evento ya creado no puede convertirse en hito (son entidades distintas).
+          options={evento ? MODOS.filter((m) => m.id !== "Hito") : MODOS}
+          value={form.tipo}
+          onChange={(tipo) => setForm((f) => ({ ...f, tipo }))}
         />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <SearchableSelect
-            label="Proyecto"
-            options={proyectos.map((p) => ({ id: p.id, label: `${p.codigo} · ${p.nombre}` }))}
-            value={form.proyectoId}
-            onChange={(v) => setForm((f) => ({ ...f, proyectoId: v }))}
-            placeholder="Ninguno"
-            emptyText="No hay proyectos que coincidan"
+        {esHito ? (
+          <>
+            <p className="-mt-2 text-xs text-muted">Se crea como hito del proyecto: aparece en el calendario, en Tareas › Hitos y en el detalle del proyecto.</p>
+            <SearchableSelect
+              isRequired
+              clearable={false}
+              label="Proyecto"
+              options={proyectos.map((p) => ({ id: p.id, label: `${p.codigo} · ${p.nombre}` }))}
+              value={form.proyectoId}
+              onChange={(v) => setForm((f) => ({ ...f, proyectoId: v }))}
+              placeholder="Busca por código o nombre…"
+              emptyText="No hay proyectos que coincidan"
+            />
+            <TextField isRequired value={form.titulo} onChange={(v) => setForm((f) => ({ ...f, titulo: v }))}>
+              <Label>Nombre del hito</Label>
+              <Input placeholder="Entrega del módulo X" />
+            </TextField>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <DatePickerField
+                isRequired
+                label="Fecha"
+                value={form.fechaInicio.slice(0, 10)}
+                onChange={(v) => setForm((f) => ({ ...f, fechaInicio: v ? `${v}T${f.fechaInicio.slice(11, 16) || "09:00"}` : "" }))}
+              />
+              <SelectField
+                label="Estado"
+                options={ESTADOS_HITO.map((e) => ({ id: e, label: ESTADO_HITO_LABEL[e] }))}
+                value={form.estadoHito}
+                onChange={(v) => setForm((f) => ({ ...f, estadoHito: (v as EstadoHito) ?? "Pendiente" }))}
+              />
+            </div>
+            <TextField value={form.descripcion} onChange={(v) => setForm((f) => ({ ...f, descripcion: v }))}>
+              <Label>Descripción</Label>
+              <TextArea rows={3} />
+            </TextField>
+          </>
+        ) : (
+          <>
+          <TextField isRequired value={form.titulo} onChange={(v) => setForm((f) => ({ ...f, titulo: v }))}>
+            <Label>Título</Label>
+            <Input placeholder="Comité de seguimiento..." />
+          </TextField>
+          <EventoFechasField
+            inicio={form.fechaInicio}
+            fin={form.fechaFin}
+            onChange={(fechaInicio, fechaFin) => setForm((f) => ({ ...f, fechaInicio, fechaFin }))}
           />
-          <SearchableSelect
-            label="Equipo"
-            options={equipos.map((e) => ({ id: e.id, label: e.nombre }))}
-            value={form.equipoId}
-            onChange={(v) => setForm((f) => ({ ...f, equipoId: v }))}
-            placeholder="Ninguno"
-            emptyText="No hay equipos que coincidan"
-          />
-          <SearchableSelect
-            label="Persona"
-            options={personas.map((p) => ({ id: p.id, label: p.nombre }))}
-            value={form.personaId}
-            onChange={(v) => setForm((f) => ({ ...f, personaId: v }))}
-            placeholder="Ninguna"
-            emptyText="No hay personas que coincidan"
-          />
-        </div>
-        <MarkdownEditor label="Descripción / notas" value={form.descripcion} onChange={(v) => setForm((f) => ({ ...f, descripcion: v }))} />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <SearchableSelect
+              label="Proyecto"
+              options={proyectos.map((p) => ({ id: p.id, label: `${p.codigo} · ${p.nombre}` }))}
+              value={form.proyectoId}
+              onChange={(v) => setForm((f) => ({ ...f, proyectoId: v }))}
+              placeholder="Ninguno"
+              emptyText="No hay proyectos que coincidan"
+            />
+            <SearchableSelect
+              label="Equipo"
+              options={equipos.map((e) => ({ id: e.id, label: e.nombre }))}
+              value={form.equipoId}
+              onChange={(v) => setForm((f) => ({ ...f, equipoId: v }))}
+              placeholder="Ninguno"
+              emptyText="No hay equipos que coincidan"
+            />
+            <SearchableSelect
+              label="Persona"
+              options={personas.map((p) => ({ id: p.id, label: p.nombre }))}
+              value={form.personaId}
+              onChange={(v) => setForm((f) => ({ ...f, personaId: v }))}
+              placeholder="Ninguna"
+              emptyText="No hay personas que coincidan"
+            />
+          </div>
+          <MarkdownEditor label="Descripción / notas" value={form.descripcion} onChange={(v) => setForm((f) => ({ ...f, descripcion: v }))} />
+          </>
+        )}
       </FormModal>
 
       <ConfirmDialog

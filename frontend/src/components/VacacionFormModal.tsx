@@ -9,6 +9,7 @@ import { DateRangeField } from "./DateRangeField";
 import { FormModal } from "./FormModal";
 import { SearchableMultiSelect } from "./SearchableMultiSelect";
 import { SearchableSelect } from "./SearchableSelect";
+import { SegmentedControl } from "./SegmentedControl";
 import { SelectField } from "./SelectField";
 
 export type TipoAusencia = "vacaciones" | "festivo";
@@ -175,18 +176,6 @@ export function VacacionFormModal({
 
   const titulo = vacacion ? "Editar vacación" : festivo ? "Editar festivo" : esFestivo ? "Nuevo festivo" : "Nueva vacación";
 
-  const tipoBoton = (tipo: TipoAusencia, texto: string) => (
-    <button
-      type="button"
-      onClick={() => setForm((f) => ({ ...f, tipo }))}
-      className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-        form.tipo === tipo ? "bg-surface text-foreground shadow-sm" : "text-muted hover:text-foreground"
-      }`}
-    >
-      {texto}
-    </button>
-  );
-
   return (
     <>
       <FormModal
@@ -213,10 +202,15 @@ export function VacacionFormModal({
         {error ? <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
 
         {!editando ? (
-          <div className="flex rounded-lg bg-surface-secondary p-1">
-            {tipoBoton("vacaciones", "Vacaciones")}
-            {tipoBoton("festivo", "Festivo")}
-          </div>
+          <SegmentedControl
+            ariaLabel="Tipo de ausencia"
+            options={[
+              { id: "vacaciones", label: "Vacaciones" },
+              { id: "festivo", label: "Festivo" },
+            ]}
+            value={form.tipo}
+            onChange={(tipo) => setForm((f) => ({ ...f, tipo }))}
+          />
         ) : null}
 
         {esFestivo ? (

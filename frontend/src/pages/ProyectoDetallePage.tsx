@@ -3,6 +3,7 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { DatePickerField } from "../components/DatePickerField";
 import { FormModal } from "../components/FormModal";
 import { IconCalendar, IconPlus, IconTeam, IconUsers } from "../components/Icons";
 import { JiraLink } from "../components/JiraLink";
@@ -93,7 +94,10 @@ export default function ProyectoDetallePage() {
   };
 
   const handleHitoEstado = async (hitoId: string, estado: EstadoHito) => {
-    await hitosApi.actualizar(hitoId, { estado });
+    // El PUT espera el hito completo: si solo se envía el estado, se perderían nombre y fecha.
+    const hito = proyecto?.hitos.find((h) => h.id === hitoId);
+    if (!hito) return;
+    await hitosApi.actualizar(hitoId, { nombre: hito.nombre, fecha: hito.fecha, estado, descripcion: hito.descripcion });
     cargar();
   };
 
@@ -491,10 +495,7 @@ export default function ProyectoDetallePage() {
           <Label>Nombre</Label>
           <Input placeholder="Entrega del módulo X" />
         </TextField>
-        <TextField isRequired type="date" value={hitoForm.fecha} onChange={(v) => setHitoForm((f) => ({ ...f, fecha: v }))}>
-          <Label>Fecha</Label>
-          <Input />
-        </TextField>
+        <DatePickerField isRequired label="Fecha" value={hitoForm.fecha} onChange={(v) => setHitoForm((f) => ({ ...f, fecha: v }))} />
         <TextField value={hitoForm.descripcion} onChange={(v) => setHitoForm((f) => ({ ...f, descripcion: v }))}>
           <Label>Descripción</Label>
           <TextArea rows={2} />

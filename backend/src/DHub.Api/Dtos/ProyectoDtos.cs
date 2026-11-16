@@ -99,3 +99,20 @@ public record HitoUpdateDto(
     EstadoHito Estado,
     string? Descripcion
 );
+
+// Hito con los datos de su proyecto, para el listado global de hitos.
+public record HitoListadoDto(
+    Guid Id,
+    Guid ProyectoId,
+    string ProyectoCodigo,
+    string ProyectoNombre,
+    EstadoProyecto ProyectoEstado,
+    Guid? EquipoId,
+    string? EquipoNombre,
+    Guid? ResponsableId,
+    string? ResponsableNombre,
+    string Nombre,
+    DateOnly Fecha,
+    EstadoHito Estado,
+    string? Descripcion
+);

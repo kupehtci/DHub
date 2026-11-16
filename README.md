@@ -1,5 +1,7 @@
 # DHub — Panel de coordinación técnica
 
+**Versión actual: 1.4.1** · [Changelog](#changelog)
+
 Aplicación web privada para un coordinador técnico que gestiona varios proyectos y
 equipos TIC (sistemas de información del Ministerio). Permite saber en todo momento
 qué está haciendo cada persona, qué proyectos están activos, qué tareas están
@@ -9,10 +11,10 @@ bloqueadas o retrasadas y qué entregas o riesgos requieren atención.
 
 - **Frontend**: React 19 + TypeScript + Vite, [HeroUI v3](https://heroui.com) (React Aria)
   + Tailwind CSS v4, React Router, dnd-kit (tableros Kanban), Recharts (analíticas),
-  date-fns (calendario), Axios.
+  date-fns (calendario), Axios, react-markdown + remark-gfm (notas de eventos).
 - **Backend**: .NET 10 Web API (ASP.NET Core), arquitectura en 3 capas
   (`DHub.Domain` / `DHub.Infrastructure` / `DHub.Api`), Entity Framework Core,
-  documentación OpenAPI con Swagger UI (`/swagger`).
+  documentación OpenAPI con Swagger UI (`/swagger`), ClosedXML (exportación a Excel).
 - **Base de datos**: PostgreSQL 16.
 - **Despliegue**: Docker + Docker Compose (un `Dockerfile` por servicio).
 
@@ -42,9 +44,12 @@ DHub/
 
 ## Modelo de datos (resumen)
 
-`Persona`, `Equipo`, `Proyecto`, `Tarea`, `Hito`, `Riesgo` (riesgos y bloqueos), `Evento`
-(reuniones/entregas de calendario), `Vacacion` (periodo de vacaciones de una persona) y
-`Nota` (registro de actividad y comentarios, asociable a proyecto, tarea o persona).
+`Persona`, `Equipo`, `Proyecto`, `Tarea` (con relaciones entre tareas, `TareaRelacion`),
+`Hito` (siempre de un proyecto), `Riesgo` (riesgos y bloqueos), `Evento` (reuniones,
+entregas y otros eventos de calendario), `Vacacion` (periodo de vacaciones de una
+persona), `Festivo` (festivo nacional, autonómico o local que afecta a un conjunto de
+personas) y `Nota` (registro de actividad y comentarios, asociable a proyecto, tarea o
+persona).
 El detalle completo de columnas y relaciones
 está en las entidades de `backend/src/DHub.Domain/Entities` y en las configuraciones de
 EF Core (`backend/src/DHub.Infrastructure/Data/Configurations`).
@@ -68,8 +73,15 @@ Reglas de negocio aplicadas en el backend:
 
 ## Pantallas principales
 
-1. **Dashboard**: indicadores globales, proyectos, próximos hitos, tareas vencidas,
-   bloqueadas, sin responsable y riesgos altos. Filtrable por equipo.
+El menú lateral agrupa las vistas relacionadas en desplegables (**Proyectos**,
+**Tareas** y **Tableros Kanban**).
+
+1. **Dashboard**: bloque **Hoy** con la agenda del día (eventos e hitos), las tareas
+   que empiezan o vencen hoy y quién está ausente (vacaciones o festivo); indicadores
+   globales **clicables** que abren el detalle (proyectos activos, en riesgo, tareas
+   vencidas, bloqueadas, sin responsable y riesgos altos); listas con scroll de
+   proyectos, próximos hitos, tareas vencidas, riesgos, bloqueadas y sin responsable.
+   Las tareas y eventos se abren directamente desde el dashboard. Filtrable por equipo.
 2. **Personas**: listado con filtros (equipo, estado, texto), avatar con iniciales y
    color determinista por persona, alta/edición/baja (**una persona puede
    pertenecer a varios equipos**), exportación CSV, y **ficha de persona** con
@@ -78,32 +90,51 @@ Reglas de negocio aplicadas en el backend:
 3. **Equipos**: listado y **ficha de equipo** para **añadir o quitar personas** del
    equipo (una persona puede estar en varios equipos a la vez) y ver sus proyectos
    asociados.
-4. **Proyectos**: listado con filtros y **ficha de proyecto** con pestañas de
-   Resumen, Tareas, Hitos, Riesgos y Notas, con enlace al tablero de Jira.
-5. **Tablero por equipo**: Kanban clásico (Backlog, Planificada, En curso, En
-   revisión/QA, Bloqueada, Hecha, Cancelada) con arrastrar y soltar para cambiar el
-   estado de una tarea; solo incluye tareas de proyectos del equipo seleccionado.
-   Cada tarea admite **comentarios** y un enlace a su ticket de Jira. Al mover una
-   tarjeta a **Bloqueada** o a **Hecha** se pide el motivo del bloqueo o la fecha
-   de cierre antes de guardar.
-6. **Tablero por usuario**: Kanban donde **cada columna es una persona del equipo
-   seleccionado**; arrastrar una tarjeta a otra columna reasigna la tarea a esa
-   persona.
-6b. **Tablero por proyecto**: el mismo Kanban por estados, pero eligiendo un
-    proyecto en lugar de un equipo.
-7. **Calendario**: vista mensual con las tareas (por fecha objetivo) y los
-   **eventos** del equipo (reuniones, entregas, hitos) en su día y hora; agenda del
-   día seleccionado y alta/edición/baja de eventos.
-8. **Analíticas**: gráficos de tareas por persona, tendencia de tareas completadas
-   (por semana, mes o año), tareas por estado y por prioridad, riesgos por impacto,
-   carga vs. disponibilidad por persona y tareas por proyecto.
+4. **Proyectos**
+   - **Lista de proyectos**: listado con filtros y **ficha de proyecto** con pestañas
+     de Resumen, Tareas, Hitos, Riesgos, Notas y Jira.
+   - **Gantt de proyectos**: barras de inicio a fin por proyecto, coloreadas por
+     estado y con leyenda, agrupables por equipo o responsable; arrastrar una barra
+     cambia sus fechas.
+5. **Tareas**
+   - **Lista de tareas**: todas las tareas con filtros, enlace y estado en vivo de
+     Jira, tareas relacionadas y exportación CSV.
+   - **Gantt de tareas**: línea temporal por persona, equipo o proyecto, con leyenda
+     de colores (estado, prioridad, vencidas, fechas estimadas y relaciones);
+     permite mover y redimensionar tareas y crear tareas en un hueco.
+   - **Hitos**: todos los hitos de todos los proyectos, con filtros (texto, proyecto,
+     equipo, estado, fechas), plazo relativo y alta/edición/completado rápido.
+6. **Tableros Kanban**
+   - **Por equipo**: Kanban clásico (Backlog, Planificada, En curso, En
+     revisión/QA, Bloqueada, Hecha, Cancelada) con arrastrar y soltar para cambiar el
+     estado de una tarea; solo incluye tareas de proyectos del equipo seleccionado.
+     Al mover una tarjeta a **Bloqueada** o a **Hecha** se pide el motivo del bloqueo
+     o la fecha de cierre antes de guardar.
+   - **Por usuario**: cada columna es una persona del equipo seleccionado; arrastrar
+     una tarjeta a otra columna reasigna la tarea.
+   - **Por proyecto**: el mismo Kanban por estados, eligiendo un proyecto.
+7. **Calendario**: vista mensual con eventos (reuniones, entregas, otros), **hitos de
+   proyecto** y tareas por fecha objetivo; agenda del día seleccionado. Al crear se
+   elige el tipo con pestañas: la pestaña **Hito** crea un hito de proyecto. Las notas
+   de los eventos admiten **Markdown** (títulos, negritas, código, listas…).
+8. **Analíticas**: filtros por equipo, proyecto, persona y periodo; KPIs (tareas
+   cerradas, lead time, % a tiempo, hitos cumplidos, vencidas, bloqueadas, horas
+   abiertas, riesgos altos) y gráficas de flujo de entrega, composición del trabajo,
+   carga vs. capacidad (descontando vacaciones y festivos), salud de proyectos,
+   hitos, matriz de riesgos y eventos por tipo.
 9. **Riesgos y bloqueos**: listado global con impacto, probabilidad, responsable,
    estado y fecha de revisión; alta/edición y exportación CSV.
-10. **Configuración**: tema claro/oscuro/sistema y **Mi cuenta** (nombre, usuario,
-    email y cambio de contraseña del coordinador que usa la aplicación).
-11. **Vacaciones**: vista mensual tipo "quién está fuera" con una fila por persona
-    (filtrable por equipo) y una columna por día del mes; pulsar un día abre el
-    alta o la edición del periodo de vacaciones de esa persona.
+10. **Vacaciones**: vista mensual tipo "quién está fuera" con una fila por persona
+    (filtrable por equipo) y una columna por día. Permite registrar **vacaciones** o
+    **festivos** (nacionales, autonómicos o locales) indicando a qué personas
+    afectan; los festivos se muestran en verde. Exportación a **Excel** del año con
+    resumen por persona (días naturales y laborables), detalle de vacaciones y
+    festivos.
+11. **Configuración**: tema claro/oscuro/sistema, **Mi cuenta** (nombre, usuario,
+    email y cambio de contraseña) e **Integración con Jira**.
+
+Todos los selectores de fecha usan el calendario de HeroUI en español, y los
+selectores de proyecto, equipo y persona permiten escribir para filtrar.
 
 ## Autenticación
 
@@ -224,13 +255,101 @@ para añadir/quitar miembros —una persona puede estar en varios equipos— y
 (con `/hitos`), `/api/tareas` (con `PATCH /{id}/estado` para el Kanban y comentarios vía
 `/api/notas?tareaId=`), `/api/riesgos`, `/api/notas`, `/api/eventos` (calendario, con
 filtro `desde`/`hasta`), `/api/vacaciones` (filtros `personaId`/`equipoId`/`desde`/`hasta`),
-`/api/dashboard` y `/api/auth` (`POST /login`, `GET /me`,
-`PUT /perfil`, `PUT /password`). Los listados principales exponen un endpoint
-`/export` adicional que devuelve CSV.
+`/api/festivos` (mismos filtros), `/api/hitos` (listado global con filtros
+`q`/`proyectoId`/`equipoId`/`estado`/`desde`/`hasta`), `/api/analiticas/hitos`,
+`/api/dashboard` (acepta `hoy` con la fecha local del cliente) y `/api/auth`
+(`POST /login`, `GET /me`, `PUT /perfil`, `PUT /password`). Los listados principales
+exponen un endpoint `/export` adicional que devuelve CSV; `/api/vacaciones/export`
+devuelve un Excel (`.xlsx`).
 
 ## Próximos pasos previstos
 
-- Integración real con la REST API de Jira para sincronizar tickets y tableros en
-  lugar de enlaces manuales.
 - Autenticación con Microsoft Entra ID.
 - Vista semanal/diaria adicional en el calendario (hoy solo vista mensual).
+- Historial de cambios de estado de las tareas (permitiría medir el tiempo medio
+  bloqueado y el flujo real en Analíticas).
+
+## Changelog
+
+El número de versión se indica al principio de cada mensaje de commit y en
+`frontend/package.json` y `backend/Directory.Build.props`.
+
+### 1.4.1 — 2026-11-16
+
+**Vacaciones y festivos**
+- Nuevo tipo **Festivo** (nacional, autonómico/regional, local u otro) que se asigna a
+  las personas a las que afecta, con atajos para seleccionar a todas o a un equipo
+  completo. Se muestran en verde en el calendario de vacaciones (entidad `Festivo`,
+  migración `AddFestivos`, `/api/festivos`).
+- Exportación de vacaciones y festivos a **Excel** con hoja de resumen por persona
+  (días naturales y laborables, descontando fines de semana y festivos).
+- Selector de rango de fechas con calendario y búsqueda de persona en el formulario.
+
+**Calendario y eventos**
+- Descripción de eventos con editor **Markdown** (barra de formato, vista previa y
+  caja que crece al escribir).
+- Nuevo selector de inicio y fin con calendario, hora en formato 24 h y duraciones
+  rápidas.
+- Proyecto, equipo y persona con autocompletado.
+- Tipo de evento elegido con pestañas. Desaparece el tipo de evento «Hito»: la
+  pestaña **Hito** crea un hito de proyecto. La migración `EliminarEventosHito`
+  convierte los eventos «Hito» con proyecto en hitos y deja los demás como «Otro».
+- Los hitos de proyecto aparecen en el calendario.
+
+**Proyectos, tareas e hitos**
+- «Proyectos» pasa a ser un desplegable con **Lista de proyectos** y el nuevo
+  **Gantt de proyectos**.
+- Nueva **lista de Hitos** dentro de Tareas (`GET /api/hitos`).
+- Gantt de tareas con **nueva paleta** (un color distinto por estado, legible en
+  claro y oscuro) y **leyenda** compartida con el Gantt de proyectos.
+- Todos los selectores de fecha restantes (cierre, revisión de bloqueo, riesgos,
+  proyectos, hitos) usan el calendario moderno.
+
+**Dashboard y analíticas**
+- Dashboard con bloque **Hoy** (agenda, tareas de hoy y ausencias), indicadores
+  clicables con su listado, listas con scroll y apertura directa de tareas y eventos.
+- **Analíticas** rehechas: filtros por equipo, proyecto, persona y periodo, nuevos
+  KPIs y gráficas (flujo de entrega, composición, capacidad, salud de proyectos,
+  hitos, matriz de riesgos).
+
+**Correcciones**
+- La fecha de «hoy» del backend se calculaba solo al arrancar: las tareas no pasaban
+  a vencidas hasta reiniciarlo.
+- Cambiar el estado de un hito desde la ficha de proyecto enviaba solo el estado y
+  podía perder el nombre y la fecha.
+- `package-lock.json` apuntaba a un registro npm privado y rompía el build de Docker;
+  se añade `frontend/.npmrc` con el registro público.
+
+### 1.4.0 — 2026-11-10
+- Menú lateral con desplegables (**Tareas** y **Tableros Kanban**); la vista Gantt ya
+  no marca también la lista de tareas como activa.
+- Formulario de tarea: proyecto y responsable con selector de búsqueda de una sola
+  opción, y fechas de inicio y objetivo en un único calendario de rango.
+
+### 1.3.0 — 2026-11-09
+- **Gantt de tareas** (sustituye al mapa de tareas): vistas por persona, equipo y
+  proyecto, escalas de días, semanas y meses, y relaciones entre tareas.
+- Mover y redimensionar tareas en el Gantt para cambiar sus fechas, y crear tareas
+  haciendo clic en un hueco.
+- Selector múltiple con búsqueda para las tareas relacionadas.
+
+### 1.2.0 — 2026-11-09
+- **Integración real con Jira Cloud**: configuración desde la aplicación, catálogo de
+  espacios Jira para enlazar proyectos, «Comprobar en Jira» en las tareas, estado en
+  vivo de los tickets con caché de 5 minutos y pestaña Jira en la ficha de proyecto.
+
+### 1.1.0 — 2026-10-30
+- Relaciones entre tareas, nueva página global de **Tareas** y mapa de tareas.
+- Enlaces a Jira en proyectos y tareas, y correcciones menores.
+- **Vacaciones**: vista mensual por persona y alta/edición de periodos (incluida en
+  esta etapa; el commit no llevaba número de versión).
+
+### 1.0.1 — 2026-10-29
+- Tablero Kanban **por proyecto**, chip de prioridad y mejoras en riesgos, bloqueos,
+  dashboard y fichas.
+- `.dockerignore`, `.nvmrc`, configuración de oxlint y `.env.example`.
+
+### 1.0.0 — 2026-10-29
+- Versión inicial: dashboard, personas, equipos, proyectos con hitos, tareas, tableros
+  Kanban por equipo y por usuario, calendario de eventos, analíticas, riesgos y
+  bloqueos, notas, configuración y autenticación del coordinador.

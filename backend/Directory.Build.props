@@ -1,0 +1,6 @@
+<Project>
+  <!-- Versión común de todos los proyectos del backend (se muestra también en Swagger). -->
+  <PropertyGroup>
+    <Version>1.4.1</Version>
+  </PropertyGroup>
+</Project>

@@ -18,6 +18,7 @@ import TableroProyectoPage from "./pages/TableroProyectoPage";
 import TableroUsuariosPage from "./pages/TableroUsuariosPage";
 import TareasPage from "./pages/TareasPage";
 import TareasGanttPage from "./pages/TareasGanttPage";
+import HitosPage from "./pages/HitosPage";
 import ProyectosGanttPage from "./pages/ProyectosGanttPage";
 import VacacionesPage from "./pages/VacacionesPage";
 
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/proyectos/:id" element={<ProyectoDetallePage />} />
         <Route path="/tareas" element={<TareasPage />} />
         <Route path="/tareas/gantt" element={<TareasGanttPage />} />
+        <Route path="/tareas/hitos" element={<HitosPage />} />
         <Route path="/tareas/mapa" element={<Navigate to="/tareas/gantt" replace />} />
         <Route path="/tablero" element={<TableroEquipoPage />} />
         <Route path="/tablero-usuarios" element={<TableroUsuariosPage />} />

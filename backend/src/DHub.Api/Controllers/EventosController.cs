@@ -46,6 +46,7 @@ public class EventosController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<EventoDto>> Crear(EventoCreateDto dto)
     {
+        if (!Enum.IsDefined(dto.Tipo)) return BadRequest("Tipo de evento no válido. Los hitos se crean como hitos de proyecto.");
         var evento = new Evento
         {
             Titulo = dto.Titulo,
@@ -66,6 +67,7 @@ public class EventosController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Actualizar(Guid id, EventoUpdateDto dto)
     {
+        if (!Enum.IsDefined(dto.Tipo)) return BadRequest("Tipo de evento no válido. Los hitos se crean como hitos de proyecto.");
         var evento = await _db.Eventos.FindAsync(id);
         if (evento is null) return NotFound();
 

@@ -2,19 +2,13 @@ import { Button, Checkbox, Spinner } from "@heroui/react";
 import { addDays, differenceInCalendarDays, format, isWeekend, parseISO, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { GanttLegend, type GanttLegendGroup } from "../components/GanttLegend";
 import { colorForId, initialsFor } from "../components/PersonaAvatar";
 import { SelectField } from "../components/SelectField";
 import { TareaFormModal, type TareaDefaults } from "../components/TareaFormModal";
 import { equiposApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
-import {
-  CHART_COLORS,
-  CHIP_COLOR_TO_CHART,
-  ESTADO_TAREA_COLOR,
-  ESTADO_TAREA_LABEL,
-  PRIORIDAD_CHART_COLOR,
-  PRIORIDAD_LABEL,
-} from "../lib/format";
-import type { Equipo, Persona, Proyecto, Tarea } from "../types";
+import { ESTADO_TAREA_GANTT_COLOR, ESTADO_TAREA_LABEL, PRIORIDAD_GANTT_COLOR, PRIORIDAD_LABEL } from "../lib/format";
+import { ESTADOS_TAREA, type Equipo, type EstadoTarea, type Persona, type Prioridad, type Proyecto, type Tarea } from "../types";
 
 type Vista = "persona" | "equipo" | "proyecto";
 type Agrupacion = "persona" | "proyecto" | "ninguna";
@@ -90,7 +84,100 @@ function rangoConArrastre(item: TareaPlanificada, arrastre: Arrastre | null): { 
   return { inicio, fin: nuevo < inicio ? inicio : nuevo };
 }
 
-const colorEstado = (t: Tarea) => CHIP_COLOR_TO_CHART[ESTADO_TAREA_COLOR[t.estado]] ?? CHART_COLORS.muted;
+const PRIORIDADES = Object.keys(PRIORIDAD_LABEL) as Prioridad[];
+// Rayas diagonales que marcan las barras cuya duración se ha deducido de la estimación.
+const rayasEstimada = (paso: number) =>
+  `repeating-linear-gradient(45deg, transparent 0 ${paso}px, rgba(255,255,255,0.3) ${paso}px ${paso * 2}px)`;
+// Atenuación de las tareas canceladas (además se tacha su título).
+const OPACIDAD_CANCELADA = 0.55;
+// Halo de las tareas vencidas: separado de la barra para que se vea incluso sobre el rojo de "Bloqueada".
+const HALO_VENCIDA = "outline-2 outline-offset-1 outline-danger";
+
+const colorEstado = (estado: EstadoTarea) => ESTADO_TAREA_GANTT_COLOR[estado];
+
+// Franja de prioridad del borde izquierdo de la barra, separada del color de estado por un filo blanco.
+function FranjaPrioridad({ prioridad }: { prioridad: Prioridad }) {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute inset-y-0 left-0"
+      style={{ width: 4, backgroundColor: PRIORIDAD_GANTT_COLOR[prioridad], boxShadow: "1px 0 0 rgba(255,255,255,0.9)" }}
+    />
+  );
+}
+
+// Flecha de conector para la leyenda (continua o discontinua).
+function FlechaLeyenda({ discontinua }: { discontinua?: boolean }) {
+  return (
+    <svg width="18" height="8" aria-hidden>
+      <path d="M0,4 L12,4" stroke="var(--muted)" strokeWidth="1.4" strokeDasharray={discontinua ? "3 2" : undefined} />
+      <path d="M11,1 L17,4 L11,7 z" fill="var(--muted)" />
+    </svg>
+  );
+}
+
+// Leyenda: qué significa cada color y cada señal visual de las barras.
+const LEYENDA: GanttLegendGroup[] = [
+  {
+    key: "estado",
+    label: "Estado",
+    items: ESTADOS_TAREA.map((e) => ({
+      key: e,
+      label: ESTADO_TAREA_LABEL[e],
+      title: e === "Cancelada" ? "Barra atenuada y título tachado" : e === "Hecha" ? "El título lleva una ✓" : undefined,
+      swatch: (
+        <span
+          className="h-2.5 w-2.5 rounded-sm"
+          style={{ backgroundColor: colorEstado(e), opacity: e === "Cancelada" ? OPACIDAD_CANCELADA : 1 }}
+        />
+      ),
+    })),
+  },
+  {
+    key: "prioridad",
+    label: "Prioridad",
+    items: PRIORIDADES.map((p) => ({
+      key: p,
+      label: PRIORIDAD_LABEL[p],
+      title: "Franja del borde izquierdo de la barra",
+      swatch: (
+        <span className="relative h-2.5 w-4 overflow-hidden rounded-sm" style={{ backgroundColor: colorEstado("Backlog") }}>
+          <FranjaPrioridad prioridad={p} />
+        </span>
+      ),
+    })),
+  },
+  {
+    key: "senales",
+    items: [
+      {
+        key: "vencida",
+        label: "Vencida",
+        title: "Fecha objetivo superada sin haber terminado",
+        swatch: <span className={`h-2.5 w-4 rounded-sm ${HALO_VENCIDA}`} style={{ backgroundColor: colorEstado("EnCurso") }} />,
+      },
+      {
+        key: "estimada",
+        label: "Duración estimada",
+        title: "Falta la fecha de inicio u objetivo: la duración se deduce de la estimación en horas",
+        swatch: (
+          <span
+            className="h-2.5 w-4 rounded-sm"
+            style={{ backgroundColor: colorEstado("EnCurso"), backgroundImage: rayasEstimada(3) }}
+          />
+        ),
+      },
+      { key: "relacion", label: "Relación", title: "Une tareas relacionadas", swatch: <FlechaLeyenda /> },
+      {
+        key: "solapada",
+        label: "Relación solapada",
+        title: "La tarea relacionada empieza antes de que termine la anterior",
+        swatch: <FlechaLeyenda discontinua />,
+      },
+      { key: "hoy", label: "Hoy", swatch: <span className="h-3 w-0.5 bg-accent/70" /> },
+    ],
+  },
+];
 
 export default function TareasGanttPage() {
   const [tareas, setTareas] = useState<Tarea[]>([]);
@@ -424,6 +511,8 @@ export default function TareasGanttPage() {
         </div>
       </div>
 
+      <GanttLegend groups={LEYENDA} />
+
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-64">
           <SelectField
@@ -648,7 +737,7 @@ export default function TareasGanttPage() {
                     key={t.id}
                     type="button"
                     onClick={() => setEditTarea(t)}
-                    style={{ borderLeftColor: PRIORIDAD_CHART_COLOR[t.prioridad] }}
+                    style={{ borderLeftColor: PRIORIDAD_GANTT_COLOR[t.prioridad] }}
                     className="max-w-xs truncate rounded-md border border-border border-l-4 px-2 py-1 text-left text-xs hover:bg-default/40"
                   >
                     <span className="text-muted">{t.proyectoCodigo}</span> {t.titulo}
@@ -704,14 +793,15 @@ function FilaTarea({
   onArrastre: (e: React.PointerEvent, modo: ModoArrastre) => void;
 }) {
   const t = item.tarea;
-  const color = colorEstado(t);
+  const color = colorEstado(t.estado);
+  const cancelada = t.estado === "Cancelada";
   const x = xDe(rango.inicio);
   const w = (differenceInCalendarDays(rango.fin, rango.inicio) + 1) * diaPx;
   const textoRango = `${format(rango.inicio, "d MMM", { locale: es })} → ${format(rango.fin, "d MMM", { locale: es })}`;
   const tooltip = [
     t.titulo,
     `${t.proyectoCodigo} · ${ESTADO_TAREA_LABEL[t.estado]} · Prioridad ${PRIORIDAD_LABEL[t.prioridad]}`,
-    `${textoRango}${item.estimada ? " (duración estimada)" : ""}`,
+    `${textoRango}${item.estimada ? " (duración estimada)" : ""}${t.estaVencida ? " · Vencida" : ""}`,
     t.responsableNombre ? `Responsable: ${t.responsableNombre}` : "Sin responsable",
     t.relacionadas.length ? `Relacionada con: ${t.relacionadas.map((r) => r.titulo).join(", ")}` : null,
   ]
@@ -750,21 +840,19 @@ function FilaTarea({
         title={arrastrando ? undefined : tooltip}
         onPointerDown={(e) => onArrastre(e, "mover")}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onEditar()}
-        className={`group absolute z-10 flex cursor-grab items-center gap-1 overflow-hidden rounded-md px-1.5 text-[10px] font-medium text-white shadow-sm hover:brightness-110 ${
-          t.estaVencida ? "ring-2 ring-danger" : ""
+        className={`group absolute z-10 flex cursor-grab items-center gap-1 overflow-hidden rounded-md pl-2.5 pr-1.5 text-[10px] font-medium text-white shadow-sm hover:brightness-110 ${
+          t.estaVencida ? HALO_VENCIDA : ""
         } ${arrastrando ? "shadow-lg ring-2 ring-accent" : ""}`}
         style={{
           left: LEFT_W + x + 1,
           width: Math.max(w - 2, 6),
           height: BAR_H,
-          backgroundColor: color === CHART_COLORS.muted ? "var(--default-foreground)" : color,
-          opacity: t.estado === "Hecha" || t.estado === "Cancelada" ? 0.6 : 1,
-          borderLeft: `4px solid ${PRIORIDAD_CHART_COLOR[t.prioridad]}`,
-          backgroundImage: item.estimada
-            ? "repeating-linear-gradient(45deg, transparent 0 6px, rgba(255,255,255,0.25) 6px 12px)"
-            : undefined,
+          backgroundColor: color,
+          opacity: cancelada ? OPACIDAD_CANCELADA : 1,
+          backgroundImage: item.estimada ? rayasEstimada(6) : undefined,
         }}
       >
+        <FranjaPrioridad prioridad={t.prioridad} />
         {/* Asas laterales para cambiar la fecha de inicio (izquierda) o la fecha objetivo (derecha) */}
         <span
           aria-label="Cambiar fecha de inicio"
@@ -780,13 +868,16 @@ function FilaTarea({
         />
         {t.responsableId ? (
           <span
-            className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[7px] font-semibold"
+            className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full text-[7px] font-semibold text-white ring-1 ring-white/70"
             style={{ backgroundColor: colorForId(t.responsableId) }}
           >
             {initialsFor(t.responsableNombre ?? "")}
           </span>
         ) : null}
-        <span className="truncate">{t.titulo}</span>
+        <span className={`truncate ${cancelada ? "line-through" : ""}`}>
+          {t.estado === "Hecha" ? "✓ " : ""}
+          {t.titulo}
+        </span>
       </div>
 
       {arrastrando ? (

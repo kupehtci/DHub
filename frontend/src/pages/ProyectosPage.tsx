@@ -2,6 +2,7 @@ import { Button, Input, Label, TextField } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { DatePickerField } from "../components/DatePickerField";
 import { FormModal } from "../components/FormModal";
 import { IconCalendar, IconDownload, IconPlus, IconTeam, IconUsers } from "../components/Icons";
 import { SelectField } from "../components/SelectField";
@@ -288,14 +289,8 @@ export default function ProyectosPage() {
           <SelectField emptyOption="Sin equipo" label="Equipo" options={equipoOptions} value={form.equipoId} onChange={(v) => setForm((f) => ({ ...f, equipoId: v }))} />
           <SelectField label="Estado" options={ESTADOS.map((e) => ({ id: e, label: ESTADO_PROYECTO_LABEL[e] }))} value={form.estado} onChange={(v) => setForm((f) => ({ ...f, estado: (v as EstadoProyecto) ?? "Planificado" }))} />
           <SelectField label="Prioridad" options={PRIORIDADES.map((p) => ({ id: p, label: PRIORIDAD_LABEL[p] }))} value={form.prioridad} onChange={(v) => setForm((f) => ({ ...f, prioridad: (v as Prioridad) ?? "Media" }))} />
-          <TextField isRequired type="date" value={form.fechaInicio} onChange={(v) => setForm((f) => ({ ...f, fechaInicio: v }))}>
-            <Label>Fecha inicio</Label>
-            <Input />
-          </TextField>
-          <TextField type="date" value={form.fechaFin} onChange={(v) => setForm((f) => ({ ...f, fechaFin: v }))}>
-            <Label>Fecha fin estimada</Label>
-            <Input />
-          </TextField>
+          <DatePickerField isRequired label="Fecha inicio" value={form.fechaInicio} onChange={(v) => setForm((f) => ({ ...f, fechaInicio: v }))} />
+          <DatePickerField label="Fecha fin estimada" value={form.fechaFin} onChange={(v) => setForm((f) => ({ ...f, fechaFin: v }))} />
           <SelectField
             emptyOption="Sin espacio Jira asociado"
             label="Jira · espacio del catálogo"

@@ -8,6 +8,7 @@ import type {
   EstadoPersona,
   Evento,
   Hito,
+  HitoListado,
   Nota,
   Persona,
   PersonaDetalle,
@@ -144,6 +145,8 @@ export const proyectosApi = {
 };
 
 export const hitosApi = {
+  listar: (f: { q?: string; proyectoId?: string; equipoId?: string; estado?: string; desde?: string; hasta?: string } = {}) =>
+    api.get<HitoListado[]>(`/api/hitos${qs(f)}`),
   actualizar: (id: string, data: Partial<Hito>) => api.put(`/api/hitos/${id}`, data),
   eliminar: (id: string) => api.delete(`/api/hitos/${id}`),
 };
@@ -198,7 +201,7 @@ export const notasApi = {
 };
 
 export const dashboardApi = {
-  obtener: (f: { equipoId?: string; proyectoId?: string } = {}) =>
+  obtener: (f: { equipoId?: string; proyectoId?: string; hoy?: string } = {}) =>
     api.get<Dashboard>(`/api/dashboard${qs(f)}`),
 };
 

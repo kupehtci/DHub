@@ -95,10 +95,11 @@ public enum TipoNota
 
 public enum TipoEvento
 {
-    Reunion,
-    Entrega,
-    Hito,
-    Otro
+    Reunion = 0,
+    Entrega = 1,
+    // El valor 2 era "Hito": los hitos son ahora solo entidades de proyecto (tabla Hitos).
+    // Se mantiene el número de Otro para no alterar los datos ya guardados.
+    Otro = 3
 }
 
 public enum AmbitoFestivo

@@ -1,10 +1,11 @@
-import { Button, Description, Input, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Input, Label, TextArea, TextField } from "@heroui/react";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { jiraApi, notasApi, tareasApi } from "../lib/api";
 import { PRIORIDAD_LABEL, TIPO_TAREA_LABEL } from "../lib/format";
 import { ESTADOS_TAREA, type EstadoTarea, type JiraTicketInfo, type Nota, type Persona, type Prioridad, type Proyecto, type Tarea, type TipoTarea } from "../types";
 import { DateRangeField } from "./DateRangeField";
+import { DatePickerField } from "./DatePickerField";
 import { FormModal } from "./FormModal";
 import { SearchableMultiSelect } from "./SearchableMultiSelect";
 import { SearchableSelect } from "./SearchableSelect";
@@ -354,21 +355,20 @@ export function TareaFormModal({
             onChange={(v) => setForm((f) => ({ ...f, responsableBloqueoId: v }))}
             emptyText="No hay personas que coincidan"
           />
-          <TextField isRequired type="date" value={form.fechaRevisionBloqueo} onChange={(v) => setForm((f) => ({ ...f, fechaRevisionBloqueo: v }))}>
-            <Label>Fecha de revisión</Label>
-            <Input />
-            <Description>Fecha en la que se revisará si el bloqueo sigue vigente</Description>
-          </TextField>
+          <DatePickerField
+            isRequired
+            label="Fecha de revisión"
+            value={form.fechaRevisionBloqueo}
+            onChange={(v) => setForm((f) => ({ ...f, fechaRevisionBloqueo: v }))}
+            description="Fecha en la que se revisará si el bloqueo sigue vigente"
+          />
         </div>
       ) : null}
 
       {isHecha ? (
         <div className="flex flex-col gap-3 rounded-xl border border-success/30 bg-success-soft/30 p-3">
           <p className="text-sm font-medium text-success">¿Cuándo se completó la tarea?</p>
-          <TextField isRequired type="date" value={form.fechaCierre} onChange={(v) => setForm((f) => ({ ...f, fechaCierre: v }))}>
-            <Label>Fecha de cierre</Label>
-            <Input />
-          </TextField>
+          <DatePickerField isRequired label="Fecha de cierre" value={form.fechaCierre} onChange={(v) => setForm((f) => ({ ...f, fechaCierre: v }))} />
         </div>
       ) : null}
 

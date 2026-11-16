@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY DHub.slnx .
+COPY DHub.slnx Directory.Build.props ./
 COPY src/DHub.Domain/DHub.Domain.csproj src/DHub.Domain/
 COPY src/DHub.Infrastructure/DHub.Infrastructure.csproj src/DHub.Infrastructure/
 COPY src/DHub.Api/DHub.Api.csproj src/DHub.Api/
