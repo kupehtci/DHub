@@ -39,8 +39,15 @@ public static class Mappings
         t.FechaRevisionBloqueo,
         t.JiraTicketUrl,
         t.JiraTicketClave,
-        new List<TareaRelacionadaDto>()
+        new List<TareaRelacionadaDto>(),
+        t.CreadoEn,
+        t.ActualizadoEn,
+        new List<TareaDependenciaDto>(),
+        new List<TareaDependenciaDto>()
     );
+
+    public static TareaDependenciaDto ToDependenciaDto(this Tarea t) =>
+        new(t.Id, t.Titulo, t.Proyecto?.Codigo ?? string.Empty, t.Estado, t.FechaInicio, t.FechaObjetivo);
 
     public static bool EsActiva(this Tarea t) =>
         t.Estado is EstadoTarea.Planificada or EstadoTarea.EnCurso or EstadoTarea.EnRevision or EstadoTarea.Bloqueada;
@@ -113,7 +120,7 @@ public static class Mappings
         );
     }
 
-    public static HitoDto ToDto(this Hito h) => new(h.Id, h.ProyectoId, h.Nombre, h.Fecha, h.Estado, h.Descripcion);
+    public static HitoDto ToDto(this Hito h) => new(h.Id, h.ProyectoId, h.Nombre, h.Fecha, h.Estado, h.Descripcion, h.CreadoEn, h.ActualizadoEn);
 
     public static RiesgoDto ToDto(this Riesgo r) => new(
         r.Id,
@@ -129,7 +136,9 @@ public static class Mappings
         r.Responsable?.Nombre,
         r.Estado,
         r.FechaDeteccion,
-        r.FechaRevision
+        r.FechaRevision,
+        r.CreadoEn,
+        r.ActualizadoEn
     );
 
     public static EventoDto ToDto(this Evento e) => new(

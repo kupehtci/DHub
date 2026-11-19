@@ -13,3 +13,15 @@ public record HitoAnaliticaDto(
     DateOnly Fecha,
     EstadoHito Estado
 );
+
+// Tiempo total y medio que las tareas filtradas han pasado en cada estado (según su historial).
+public record TiemposEstadoDto(
+    List<TiempoEstadoDto> Estados,
+    int EpisodiosBloqueo,
+    int BloqueosAbiertos,
+    double? MediaDiasBloqueo,
+    // Primera fecha con historial: antes de ella no hay datos de cambios de estado.
+    DateTime? HistorialDesde
+);
+
+public record TiempoEstadoDto(EstadoTarea Estado, double DiasTotales, int Tareas, double MediaDias);

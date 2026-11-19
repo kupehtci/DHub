@@ -16,7 +16,9 @@ public record RiesgoDto(
     string? ResponsableNombre,
     EstadoRiesgo Estado,
     DateOnly FechaDeteccion,
-    DateOnly? FechaRevision
+    DateOnly? FechaRevision,
+    DateTime CreadoEn,
+    DateTime ActualizadoEn
 );
 
 public record RiesgoCreateDto(

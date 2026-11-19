@@ -19,6 +19,7 @@ import TableroUsuariosPage from "./pages/TableroUsuariosPage";
 import TareasPage from "./pages/TareasPage";
 import TareasGanttPage from "./pages/TareasGanttPage";
 import HitosPage from "./pages/HitosPage";
+import CapacidadPage from "./pages/CapacidadPage";
 import ProyectosGanttPage from "./pages/ProyectosGanttPage";
 import VacacionesPage from "./pages/VacacionesPage";
 
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/riesgos" element={<RiesgosPage />} />
         <Route path="/calendario" element={<CalendarioPage />} />
         <Route path="/vacaciones" element={<VacacionesPage />} />
+        <Route path="/capacidad" element={<CapacidadPage />} />
         <Route path="/analiticas" element={<AnaliticasPage />} />
         <Route path="/configuracion" element={<SettingsPage />} />
       </Route>

@@ -39,7 +39,7 @@ public class HitosController : ControllerBase
                 h.Id, h.ProyectoId, h.Proyecto!.Codigo, h.Proyecto.Nombre, h.Proyecto.Estado,
                 h.Proyecto.EquipoId, h.Proyecto.Equipo != null ? h.Proyecto.Equipo.Nombre : null,
                 h.Proyecto.ResponsableId, h.Proyecto.Responsable != null ? h.Proyecto.Responsable.Nombre : null,
-                h.Nombre, h.Fecha, h.Estado, h.Descripcion))
+                h.Nombre, h.Fecha, h.Estado, h.Descripcion, h.CreadoEn, h.ActualizadoEn))
             .ToListAsync();
     }
 

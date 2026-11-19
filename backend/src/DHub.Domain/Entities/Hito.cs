@@ -2,7 +2,7 @@ using DHub.Domain.Enums;
 
 namespace DHub.Domain.Entities;
 
-public class Hito
+public class Hito : IAuditable
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ProyectoId { get; set; }
@@ -11,4 +11,7 @@ public class Hito
     public DateOnly Fecha { get; set; }
     public EstadoHito Estado { get; set; } = EstadoHito.Pendiente;
     public string? Descripcion { get; set; }
+
+    public DateTime CreadoEn { get; set; }
+    public DateTime ActualizadoEn { get; set; }
 }

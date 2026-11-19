@@ -166,6 +166,12 @@ namespace DHub.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("ActualizadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Descripcion")
                         .HasColumnType("text");
 
@@ -427,6 +433,12 @@ namespace DHub.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("ActualizadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Descripcion")
                         .HasColumnType("text");
 
@@ -475,6 +487,12 @@ namespace DHub.Infrastructure.Data.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ActualizadoEn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Descripcion")
                         .HasColumnType("text");
@@ -535,6 +553,58 @@ namespace DHub.Infrastructure.Data.Migrations
                     b.HasIndex("ResponsableId");
 
                     b.ToTable("Tareas", (string)null);
+                });
+
+            modelBuilder.Entity("DHub.Domain.Entities.TareaCambio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Campo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TareaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Usuario")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ValorAnterior")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ValorNuevo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TareaId", "Fecha");
+
+                    b.ToTable("TareasHistorial", (string)null);
+                });
+
+            modelBuilder.Entity("DHub.Domain.Entities.TareaDependencia", b =>
+                {
+                    b.Property<Guid>("PredecesoraId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SucesoraId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("PredecesoraId", "SucesoraId");
+
+                    b.HasIndex("SucesoraId");
+
+                    b.ToTable("TareasDependencias", (string)null);
                 });
 
             modelBuilder.Entity("DHub.Domain.Entities.TareaRelacion", b =>
@@ -751,6 +821,36 @@ namespace DHub.Infrastructure.Data.Migrations
                     b.Navigation("ResponsableBloqueo");
                 });
 
+            modelBuilder.Entity("DHub.Domain.Entities.TareaCambio", b =>
+                {
+                    b.HasOne("DHub.Domain.Entities.Tarea", "Tarea")
+                        .WithMany("Historial")
+                        .HasForeignKey("TareaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tarea");
+                });
+
+            modelBuilder.Entity("DHub.Domain.Entities.TareaDependencia", b =>
+                {
+                    b.HasOne("DHub.Domain.Entities.Tarea", "Predecesora")
+                        .WithMany()
+                        .HasForeignKey("PredecesoraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DHub.Domain.Entities.Tarea", "Sucesora")
+                        .WithMany()
+                        .HasForeignKey("SucesoraId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Predecesora");
+
+                    b.Navigation("Sucesora");
+                });
+
             modelBuilder.Entity("DHub.Domain.Entities.TareaRelacion", b =>
                 {
                     b.HasOne("DHub.Domain.Entities.Tarea", "TareaDestino")
@@ -840,6 +940,8 @@ namespace DHub.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("DHub.Domain.Entities.Tarea", b =>
                 {
+                    b.Navigation("Historial");
+
                     b.Navigation("Notas");
 
                     b.Navigation("Riesgos");

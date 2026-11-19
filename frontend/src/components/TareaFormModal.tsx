@@ -1,18 +1,24 @@
 import { Button, Input, Label, TextArea, TextField } from "@heroui/react";
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { jiraApi, notasApi, tareasApi } from "../lib/api";
-import { PRIORIDAD_LABEL, TIPO_TAREA_LABEL } from "../lib/format";
+import { ESTADO_TAREA_LABEL, formatFecha, PRIORIDAD_LABEL, TIPO_TAREA_LABEL } from "../lib/format";
 import { ESTADOS_TAREA, type EstadoTarea, type JiraTicketInfo, type Nota, type Persona, type Prioridad, type Proyecto, type Tarea, type TipoTarea } from "../types";
+import { AusenciasAviso } from "./AusenciasAviso";
 import { DateRangeField } from "./DateRangeField";
 import { DatePickerField } from "./DatePickerField";
 import { FormModal } from "./FormModal";
+import { MarkdownEditor } from "./MarkdownEditor";
 import { SearchableMultiSelect } from "./SearchableMultiSelect";
 import { SearchableSelect } from "./SearchableSelect";
+import { SegmentedControl } from "./SegmentedControl";
 import { SelectField } from "./SelectField";
+import { TareaHistorialPanel } from "./TareaHistorialPanel";
 
 const TIPOS: TipoTarea[] = ["HistoriaUsuario", "Bug", "Tarea", "Mejora", "Soporte"];
 const PRIORIDADES: Prioridad[] = ["Baja", "Media", "Alta", "Critica"];
+
+type Pestana = "detalles" | "comentarios" | "historial";
 
 function hoy(): string {
   return new Date().toISOString().slice(0, 10);
@@ -101,6 +107,8 @@ export function TareaFormModal({
 
   const [todasLasTareas, setTodasLasTareas] = useState<Tarea[]>([]);
   const [relacionadasIds, setRelacionadasIds] = useState<string[]>([]);
+  const [predecesorasIds, setPredecesorasIds] = useState<string[]>([]);
+  const [pestana, setPestana] = useState<Pestana>("detalles");
 
   const [jiraInfo, setJiraInfo] = useState<JiraTicketInfo | null>(null);
   const [jiraError, setJiraError] = useState<string | null>(null);
@@ -132,12 +140,15 @@ export function TareaFormModal({
         jiraTicketUrl: tarea.jiraTicketUrl ?? "",
       });
       setRelacionadasIds(tarea.relacionadas.map((r) => r.id));
+      setPredecesorasIds(tarea.bloqueadaPor.map((d) => d.id));
       cargarComentarios(tarea.id);
     } else {
       setForm(emptyForm(defaultProyectoId, defaults));
       setComentarios([]);
       setRelacionadasIds([]);
+      setPredecesorasIds([]);
     }
+    setPestana("detalles");
     setNuevoComentario("");
     setError(null);
     setJiraInfo(null);
@@ -158,6 +169,22 @@ export function TareaFormModal({
       setCheckingJira(false);
     }
   };
+
+  // Predecesoras que todavía no habrán terminado cuando empiece esta tarea (fin → inicio).
+  const dependenciasIncumplidas = useMemo(() => {
+    const inicio = form.fechaInicio || form.fechaObjetivo;
+    if (!inicio) return [];
+    return todasLasTareas.filter(
+      (t) =>
+        predecesorasIds.includes(t.id) &&
+        t.estado !== "Hecha" &&
+        t.estado !== "Cancelada" &&
+        t.fechaObjetivo !== null &&
+        t.fechaObjetivo >= inicio,
+    );
+  }, [todasLasTareas, predecesorasIds, form.fechaInicio, form.fechaObjetivo]);
+
+  const responsableNombre = personas.find((p) => p.id === form.responsableId)?.nombre;
 
   const isBloqueada = form.estado === "Bloqueada";
   const isHecha = form.estado === "Hecha";
@@ -201,11 +228,14 @@ export function TareaFormModal({
       }
       if (tareaId) {
         await tareasApi.actualizarRelaciones(tareaId, relacionadasIds);
+        await tareasApi.actualizarDependencias(tareaId, predecesorasIds);
       }
       onOpenChange(false);
       onSaved();
-    } catch {
-      setError("No se ha podido guardar la tarea.");
+    } catch (err) {
+      // Las dependencias circulares las rechaza el backend con un mensaje explicativo.
+      const mensaje = axios.isAxiosError(err) && typeof err.response?.data === "string" ? err.response.data : null;
+      setError(mensaje ?? "No se ha podido guardar la tarea.");
     } finally {
       setSaving(false);
     }
@@ -243,14 +273,39 @@ export function TareaFormModal({
       }
     >
       {error ? <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
+      {tarea ? (
+        <>
+          <SegmentedControl
+            ariaLabel="Secciones de la tarea"
+            options={[
+              { id: "detalles", label: "Detalles" },
+              { id: "comentarios", label: `Comentarios (${comentarios.length})` },
+              { id: "historial", label: "Historial" },
+            ]}
+            value={pestana}
+            onChange={setPestana}
+          />
+          <p className="-mt-2 text-xs text-muted">
+            Creada el {formatFecha(tarea.creadoEn?.slice(0, 10))} · última modificación {new Date(tarea.actualizadoEn).toLocaleString("es-ES")}
+          </p>
+        </>
+      ) : null}
+
+      {tarea && pestana === "historial" ? <TareaHistorialPanel tareaId={tarea.id} /> : null}
+
+      {!tarea || pestana === "detalles" ? (
+      <>
       <TextField isRequired value={form.titulo} onChange={(v) => setForm((f) => ({ ...f, titulo: v }))}>
         <Label>Título</Label>
         <Input placeholder="Descripción corta de la tarea" />
       </TextField>
-      <TextField value={form.descripcion} onChange={(v) => setForm((f) => ({ ...f, descripcion: v }))}>
-        <Label>Descripción</Label>
-        <TextArea rows={3} />
-      </TextField>
+      <MarkdownEditor
+        label="Descripción"
+        value={form.descripcion}
+        onChange={(v) => setForm((f) => ({ ...f, descripcion: v }))}
+        minRows={4}
+        placeholder="Describe la tarea… admite Markdown: ## títulos, **negrita**, `código`, listas…"
+      />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <SearchableSelect
           isRequired
@@ -299,13 +354,14 @@ export function TareaFormModal({
           <Label>Jira · enlace del ticket</Label>
           <Input placeholder="https://empresa.atlassian.net/browse/DESA0554-101" />
         </TextField>
-        <div className="md:col-span-2">
+        <div className="flex flex-col gap-2 md:col-span-2">
           <DateRangeField
             label="Fecha inicio · fecha objetivo"
             start={form.fechaInicio}
             end={form.fechaObjetivo}
             onChange={(fechaInicio, fechaObjetivo) => setForm((f) => ({ ...f, fechaInicio, fechaObjetivo }))}
           />
+          <AusenciasAviso personaId={form.responsableId} nombre={responsableNombre} desde={form.fechaInicio} hasta={form.fechaObjetivo} />
         </div>
       </div>
 
@@ -340,6 +396,36 @@ export function TareaFormModal({
         emptyText="No hay tareas que coincidan"
       />
 
+      <div className="flex flex-col gap-2">
+        <SearchableMultiSelect
+          label="Bloqueada por (deben terminar antes de empezar esta)"
+          values={predecesorasIds}
+          onChange={setPredecesorasIds}
+          options={todasLasTareas
+            .filter((t) => t.id !== tarea?.id)
+            .map((t) => ({ id: t.id, label: `${t.proyectoCodigo} · ${t.titulo}${t.fechaObjetivo ? ` (fin ${formatFecha(t.fechaObjetivo)})` : ""}` }))}
+          placeholder="Tareas de las que depende esta…"
+          emptyText="No hay tareas que coincidan"
+        />
+        {tarea && tarea.bloquea.length ? (
+          <p className="text-xs text-muted">
+            Esta tarea bloquea a: {tarea.bloquea.map((b) => `${b.proyectoCodigo} · ${b.titulo}`).join(", ")}
+          </p>
+        ) : null}
+        {dependenciasIncumplidas.length ? (
+          <div className="rounded-lg border border-warning/40 bg-warning-soft/40 px-3 py-2 text-sm">
+            <p className="font-medium text-warning">⚠ Empieza antes de que terminen tareas de las que depende</p>
+            <ul className="text-xs text-muted">
+              {dependenciasIncumplidas.map((t) => (
+                <li key={t.id}>
+                  {t.proyectoCodigo} · {t.titulo}: termina el {formatFecha(t.fechaObjetivo)} ({ESTADO_TAREA_LABEL[t.estado]})
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+
       {isBloqueada ? (
         <div className="flex flex-col gap-4 rounded-xl border border-danger/30 bg-danger-soft/30 p-3">
           <p className="text-sm font-medium text-danger">Datos del bloqueo (obligatorios)</p>
@@ -372,9 +458,11 @@ export function TareaFormModal({
         </div>
       ) : null}
 
-      {tarea ? (
-        <div className="flex flex-col gap-3 border-t border-border pt-4">
-          <p className="text-sm font-medium text-foreground">Comentarios ({comentarios.length})</p>
+      </>
+      ) : null}
+
+      {tarea && pestana === "comentarios" ? (
+        <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
             {comentarios.length === 0 ? (
               <p className="text-sm text-muted">Todavía no hay comentarios en esta tarea.</p>

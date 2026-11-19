@@ -27,7 +27,32 @@ public record TareaDto(
     DateOnly? FechaRevisionBloqueo,
     string? JiraTicketUrl,
     string? JiraTicketClave,
-    List<TareaRelacionadaDto> Relacionadas
+    List<TareaRelacionadaDto> Relacionadas,
+    DateTime CreadoEn,
+    DateTime ActualizadoEn,
+    // Dependencias: tareas que deben terminar antes que esta, y tareas que esperan a esta.
+    List<TareaDependenciaDto> BloqueadaPor,
+    List<TareaDependenciaDto> Bloquea
+);
+
+public record TareaDependenciaDto(
+    Guid Id,
+    string Titulo,
+    string ProyectoCodigo,
+    EstadoTarea Estado,
+    DateOnly? FechaInicio,
+    DateOnly? FechaObjetivo
+);
+
+public record TareaDependenciasUpdateDto(List<Guid> PredecesorasIds);
+
+public record TareaCambioDto(
+    Guid Id,
+    DateTime Fecha,
+    string Usuario,
+    string Campo,
+    string? ValorAnterior,
+    string? ValorNuevo
 );
 
 // Resumen de una tarea relacionada, para mostrar en la tabla, el panel de edición y el mapa.

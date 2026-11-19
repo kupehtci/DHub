@@ -1,5 +1,8 @@
 import axios from "axios";
 import type {
+  Ausencia,
+  Capacidad,
+  TareaCambio,
   AmbitoFestivo,
   Festivo,
   Dashboard,
@@ -172,6 +175,8 @@ export const tareasApi = {
   cambiarFechas: (id: string, fechaInicio: string | null, fechaObjetivo: string | null) =>
     api.patch(`/api/tareas/${id}/fechas`, { fechaInicio, fechaObjetivo }),
   actualizarRelaciones: (id: string, relacionadasIds: string[]) => api.put(`/api/tareas/${id}/relaciones`, { relacionadasIds }),
+  actualizarDependencias: (id: string, predecesorasIds: string[]) => api.put(`/api/tareas/${id}/dependencias`, { predecesorasIds }),
+  historial: (id: string) => api.get<TareaCambio[]>(`/api/tareas/${id}/historial`),
   eliminar: (id: string) => api.delete(`/api/tareas/${id}`),
   exportUrl: (f: TareaFiltros = {}) => `${api.defaults.baseURL}/api/tareas/export${qs(f)}`,
 };
@@ -265,4 +270,11 @@ export const festivosApi = {
   crear: (data: FestivoPayload) => api.post<Festivo>("/api/festivos", data),
   actualizar: (id: string, data: FestivoPayload) => api.put(`/api/festivos/${id}`, data),
   eliminar: (id: string) => api.delete(`/api/festivos/${id}`),
+};
+
+export const capacidadApi = {
+  obtener: (f: { desde?: string; semanas?: number; equipoId?: string; personaId?: string; hoy?: string } = {}) =>
+    api.get<Capacidad>(`/api/capacidad${qs(f)}`),
+  ausencias: (personaId: string, desde: string, hasta: string) =>
+    api.get<Ausencia[]>(`/api/capacidad/ausencias${qs({ personaId, desde, hasta })}`),
 };

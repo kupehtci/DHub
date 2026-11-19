@@ -2,13 +2,22 @@ import { Button, Checkbox, Spinner } from "@heroui/react";
 import { addDays, differenceInCalendarDays, format, isWeekend, parseISO, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GanttLegend, type GanttLegendGroup } from "../components/GanttLegend";
+import { GanttLegend, LegendArrow, type GanttLegendGroup } from "../components/GanttLegend";
 import { colorForId, initialsFor } from "../components/PersonaAvatar";
 import { SelectField } from "../components/SelectField";
 import { TareaFormModal, type TareaDefaults } from "../components/TareaFormModal";
 import { equiposApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
 import { ESTADO_TAREA_GANTT_COLOR, ESTADO_TAREA_LABEL, PRIORIDAD_GANTT_COLOR, PRIORIDAD_LABEL } from "../lib/format";
-import { ESTADOS_TAREA, type Equipo, type EstadoTarea, type Persona, type Prioridad, type Proyecto, type Tarea } from "../types";
+import {
+  ESTADOS_TAREA,
+  type Equipo,
+  type EstadoTarea,
+  type Persona,
+  type Prioridad,
+  type Proyecto,
+  type Tarea,
+  type TareaDependencia,
+} from "../types";
 
 type Vista = "persona" | "equipo" | "proyecto";
 type Agrupacion = "persona" | "proyecto" | "ninguna";
@@ -61,18 +70,85 @@ interface Arrastre {
 const diasDeEstimacion = (horas: number) => Math.max(1, Math.ceil((horas || 0) / HORAS_POR_DIA));
 const aIso = (d: Date) => format(d, "yyyy-MM-dd");
 
-function planificar(t: Tarea): TareaPlanificada | null {
-  const ini = t.fechaInicio ? startOfDay(parseISO(t.fechaInicio)) : null;
-  const fin = t.fechaObjetivo ? startOfDay(parseISO(t.fechaObjetivo)) : null;
-  if (ini && fin) return fin < ini ? { tarea: t, inicio: fin, fin: ini, estimada: false } : { tarea: t, inicio: ini, fin, estimada: false };
-  const dias = diasDeEstimacion(t.estimacionHoras);
-  if (ini) return { tarea: t, inicio: ini, fin: addDays(ini, dias - 1), estimada: true };
-  if (fin) return { tarea: t, inicio: addDays(fin, -(dias - 1)), fin, estimada: true };
+interface Rango {
+  inicio: Date;
+  fin: Date;
+}
+
+// Rango efectivo de una tarea a partir de sus fechas; si falta una, se deduce de la estimación.
+function rangoDeFechas(
+  fechaInicio: string | null,
+  fechaObjetivo: string | null,
+  estimacionHoras: number,
+): (Rango & { estimada: boolean }) | null {
+  const ini = fechaInicio ? startOfDay(parseISO(fechaInicio)) : null;
+  const fin = fechaObjetivo ? startOfDay(parseISO(fechaObjetivo)) : null;
+  if (ini && fin) return fin < ini ? { inicio: fin, fin: ini, estimada: false } : { inicio: ini, fin, estimada: false };
+  const dias = diasDeEstimacion(estimacionHoras);
+  if (ini) return { inicio: ini, fin: addDays(ini, dias - 1), estimada: true };
+  if (fin) return { inicio: addDays(fin, -(dias - 1)), fin, estimada: true };
   return null;
 }
 
+function planificar(t: Tarea): TareaPlanificada | null {
+  const r = rangoDeFechas(t.fechaInicio, t.fechaObjetivo, t.estimacionHoras);
+  return r ? { tarea: t, ...r } : null;
+}
+
+// ---- Días laborables (solo se descartan fines de semana) ----
+const siguienteLaborable = (d: Date) => {
+  let x = addDays(d, 1);
+  while (isWeekend(x)) x = addDays(x, 1);
+  return x;
+};
+const contarLaborables = (ini: Date, fin: Date) => {
+  let n = 0;
+  for (let x = ini; x <= fin; x = addDays(x, 1)) if (!isWeekend(x)) n++;
+  return Math.max(1, n);
+};
+// Fecha en la que acaba un trabajo de `n` días laborables que empieza en `ini` (laborable).
+const finTrasLaborables = (ini: Date, n: number) => {
+  let x = ini;
+  for (let c = 1; c < n; ) {
+    x = addDays(x, 1);
+    if (!isWeekend(x)) c++;
+  }
+  return x;
+};
+
+const esCerrada = (estado: EstadoTarea | undefined) => estado === "Hecha" || estado === "Cancelada";
+const fechaCorta = (d: Date) => format(d, "d MMM", { locale: es });
+
+// Dependencia fin → inicio: `pred` debe terminar antes de que empiece `succ`.
+interface Dependencia {
+  pred: string;
+  succ: string;
+}
+const claveDep = (d: Dependencia) => `${d.pred}>${d.succ}`;
+
+// Dependencia que un arrastre ha hecho incumplir (o ha empeorado).
+interface AvisoDependencia extends Dependencia {
+  predTitulo: string;
+  succTitulo: string;
+}
+
+const COLOR_DEPENDENCIA = "var(--foreground)";
+const COLOR_DEPENDENCIA_INCUMPLIDA = "var(--danger)";
+// Separación horizontal de los codos de la flecha de dependencia.
+const CODO = 8;
+
+// Flecha ortogonal fin de la predecesora → inicio de la sucesora. Si la sucesora empieza antes
+// de que acabe la predecesora, la flecha retrocede por el hueco entre filas.
+function rutaDependencia(pa: { x2: number; yc: number }, pb: { x1: number; yc: number }) {
+  const { x2: x1, yc: y1 } = pa;
+  const { x1: x2, yc: y2 } = pb;
+  if (x2 - x1 >= CODO * 2) return `M ${x1} ${y1} H ${x1 + CODO} V ${y2} H ${x2}`;
+  const ym = y2 > y1 ? y2 - ROW_H / 2 : y2 + ROW_H / 2;
+  return `M ${x1} ${y1} H ${x1 + CODO} V ${ym} H ${x2 - CODO} V ${y2} H ${x2}`;
+}
+
 // Aplica el desplazamiento (en días) de un arrastre en curso al rango de una tarea.
-function rangoConArrastre(item: TareaPlanificada, arrastre: Arrastre | null): { inicio: Date; fin: Date } {
+function rangoConArrastre(item: TareaPlanificada, arrastre: Arrastre | null): Rango {
   if (!arrastre || arrastre.id !== item.tarea.id || arrastre.delta === 0) return item;
   const { inicio, fin } = item;
   if (arrastre.modo === "mover") return { inicio: addDays(inicio, arrastre.delta), fin: addDays(fin, arrastre.delta) };
@@ -106,13 +182,16 @@ function FranjaPrioridad({ prioridad }: { prioridad: Prioridad }) {
   );
 }
 
-// Flecha de conector para la leyenda (continua o discontinua).
-function FlechaLeyenda({ discontinua }: { discontinua?: boolean }) {
+// Distintivo ⚠ de las tareas que empiezan antes de que termine alguna predecesora.
+function MarcaConflicto({ className = "", title, style }: { className?: string; title?: string; style?: React.CSSProperties }) {
   return (
-    <svg width="18" height="8" aria-hidden>
-      <path d="M0,4 L12,4" stroke="var(--muted)" strokeWidth="1.4" strokeDasharray={discontinua ? "3 2" : undefined} />
-      <path d="M11,1 L17,4 L11,7 z" fill="var(--muted)" />
-    </svg>
+    <span
+      title={title}
+      style={style}
+      className={`flex h-3.5 w-3.5 items-center justify-center rounded-full bg-danger text-[9px] font-bold leading-none text-white ring-1 ring-surface ${className}`}
+    >
+      !
+    </span>
   );
 }
 
@@ -167,12 +246,34 @@ const LEYENDA: GanttLegendGroup[] = [
           />
         ),
       },
-      { key: "relacion", label: "Relación", title: "Une tareas relacionadas", swatch: <FlechaLeyenda /> },
+      {
+        key: "relacion",
+        label: "Relación",
+        title: "Une tareas relacionadas (sin orden obligatorio)",
+        swatch: <LegendArrow opacity={0.6} />,
+      },
       {
         key: "solapada",
         label: "Relación solapada",
         title: "La tarea relacionada empieza antes de que termine la anterior",
-        swatch: <FlechaLeyenda discontinua />,
+        swatch: <LegendArrow dashed opacity={0.6} />,
+      },
+      {
+        key: "dependencia",
+        label: "Dependencia: A debe terminar antes de B",
+        title: "Flecha del final de la predecesora (A) al inicio de la sucesora (B)",
+        swatch: <LegendArrow color={COLOR_DEPENDENCIA} strokeWidth={2} />,
+      },
+      {
+        key: "incumplida",
+        label: "Dependencia incumplida",
+        title: "La sucesora empieza antes de que termine su predecesora (que no está hecha ni cancelada)",
+        swatch: (
+          <span className="flex items-center gap-0.5">
+            <LegendArrow color={COLOR_DEPENDENCIA_INCUMPLIDA} strokeWidth={2} />
+            <MarcaConflicto />
+          </span>
+        ),
       },
       { key: "hoy", label: "Hoy", swatch: <span className="h-3 w-0.5 bg-accent/70" /> },
     ],
@@ -202,6 +303,12 @@ export default function TareasGanttPage() {
   const arrastreRef = useRef<Arrastre | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const centradoInicial = useRef(false);
+  // Aviso no bloqueante tras un arrastre que incumple (o empeora) alguna dependencia.
+  const [aviso, setAviso] = useState<AvisoDependencia[] | null>(null);
+  const [moviendoSucesoras, setMoviendoSucesoras] = useState(false);
+  // Tarea resaltada momentáneamente al navegar por las dependencias incumplidas.
+  const [destacadaId, setDestacadaId] = useState<string | null>(null);
+  const indiceConflicto = useRef(0);
 
   const cargar = () => {
     setLoading((prev) => prev || tareas.length === 0);
@@ -240,9 +347,61 @@ export default function TareasGanttPage() {
   const visibles = useMemo(() => {
     let lista = tareas;
     if (ocultarCerradas) lista = lista.filter((t) => t.estado !== "Hecha" && t.estado !== "Cancelada");
-    if (soloConRelacion) lista = lista.filter((t) => t.relacionadas.length > 0);
+    if (soloConRelacion)
+      lista = lista.filter((t) => t.relacionadas.length > 0 || t.bloqueadaPor.length > 0 || t.bloquea.length > 0);
     return lista;
   }, [tareas, ocultarCerradas, soloConRelacion]);
+
+  // ---- Dependencias (fin → inicio) ----
+
+  const tareasPorId = useMemo(() => new Map(tareas.map((t) => [t.id, t])), [tareas]);
+
+  // Pares predecesora → sucesora deducidos de `bloqueadaPor` y `bloquea` de las tareas cargadas
+  // (deduplicados), y los datos resumidos de las tareas enlazadas que no están cargadas.
+  const dependencias = useMemo(() => {
+    const info = new Map<string, TareaDependencia>();
+    const pares = new Map<string, Dependencia>();
+    const add = (d: Dependencia) => pares.set(claveDep(d), d);
+    tareas.forEach((t) => {
+      (t.bloqueadaPor ?? []).forEach((p) => {
+        info.set(p.id, p);
+        add({ pred: p.id, succ: t.id });
+      });
+      (t.bloquea ?? []).forEach((x) => {
+        info.set(x.id, x);
+        add({ pred: t.id, succ: x.id });
+      });
+    });
+    const lista = [...pares.values()];
+    // Pares (sin orden) que ya se dibujan como dependencia, para no duplicarlos como relación.
+    const noOrdenados = new Set(lista.map((d) => [d.pred, d.succ].sort().join("|")));
+    return { info, pares: lista, noOrdenados };
+  }, [tareas]);
+
+  const tituloDe = (id: string) => tareasPorId.get(id)?.titulo ?? dependencias.info.get(id)?.titulo ?? "(tarea)";
+  const cerrada = (id: string) => esCerrada(tareasPorId.get(id)?.estado ?? dependencias.info.get(id)?.estado);
+
+  // Rango efectivo de cualquier tarea enlazada (aplicando el arrastre indicado si es la arrastrada).
+  // Para las tareas no cargadas se usan las fechas resumidas que trae la dependencia.
+  const rangoDe = (id: string, arr: Arrastre | null): Rango | null => {
+    const t = tareasPorId.get(id);
+    if (t) {
+      const p = planificar(t);
+      return p ? rangoConArrastre(p, arr) : null;
+    }
+    const d = dependencias.info.get(id);
+    return d ? rangoDeFechas(d.fechaInicio, d.fechaObjetivo, 0) : null;
+  };
+
+  // Días en los que la sucesora se solapa con su predecesora (0 si la dependencia se cumple o
+  // si la predecesora ya está hecha o cancelada).
+  const solape = (d: Dependencia, arr: Arrastre | null) => {
+    if (cerrada(d.pred)) return 0;
+    const rp = rangoDe(d.pred, arr);
+    const rs = rangoDe(d.succ, arr);
+    if (!rp || !rs) return 0;
+    return Math.max(0, differenceInCalendarDays(rp.fin, rs.inicio) + 1);
+  };
 
   const { planificadas, sinFechas } = useMemo(() => {
     const planificadas: TareaPlanificada[] = [];
@@ -335,20 +494,45 @@ export default function TareasGanttPage() {
       t.relacionadas.forEach((r) => {
         if (!barras.has(t.id) || !barras.has(r.id)) return;
         const clave = [t.id, r.id].sort().join("|");
-        if (vistos.has(clave)) return;
+        // Si además son dependencia, se dibuja solo la flecha de dependencia.
+        if (vistos.has(clave) || dependencias.noOrdenados.has(clave)) return;
         vistos.add(clave);
         const [a, b] = barras.get(t.id)!.x1 <= barras.get(r.id)!.x1 ? [t.id, r.id] : [r.id, t.id];
         lista.push({ a, b });
       }),
     );
     return lista;
-  }, [visibles, barras]);
+  }, [visibles, barras, dependencias]);
+
+  // Dependencias incumplidas, recalculadas en vivo durante el arrastre.
+  const incumplidas = dependencias.pares.filter((d) => solape(d, arrastre) > 0);
+  const clavesIncumplidas = new Set(incumplidas.map(claveDep));
+  // Por cada sucesora, las predecesoras que todavía no han terminado cuando ella empieza.
+  const conflictosPorTarea = new Map<string, string[]>();
+  incumplidas.forEach((d) => {
+    const rp = rangoDe(d.pred, arrastre);
+    const texto = `«${tituloDe(d.pred)}»${rp ? ` (termina el ${fechaCorta(rp.fin)})` : ""}`;
+    conflictosPorTarea.set(d.succ, [...(conflictosPorTarea.get(d.succ) ?? []), texto]);
+  });
+  // Solo se dibujan las dependencias con ambas tareas visibles en la vista actual.
+  const flechasDep = dependencias.pares.filter((d) => barras.has(d.pred) && barras.has(d.succ));
+  // Sucesoras con conflicto visibles, en orden de aparición, para recorrerlas desde el resumen.
+  const conflictosVisibles = [...new Set(incumplidas.map((d) => d.succ))]
+    .filter((id) => barras.has(id))
+    .sort((a, b) => barras.get(a)!.yc - barras.get(b)!.yc);
+  // El aviso de arrastre solo muestra lo que sigue incumplido.
+  const avisoVigente = aviso?.filter((x) => clavesIncumplidas.has(claveDep(x))) ?? [];
 
   const relacionadasConHover = useMemo(() => {
     if (!hoverId) return null;
     const t = tareas.find((x) => x.id === hoverId);
-    return new Set([hoverId, ...(t?.relacionadas.map((r) => r.id) ?? [])]);
-  }, [hoverId, tareas]);
+    const ids = new Set([hoverId, ...(t?.relacionadas.map((r) => r.id) ?? [])]);
+    dependencias.pares.forEach((d) => {
+      if (d.pred === hoverId) ids.add(d.succ);
+      if (d.succ === hoverId) ids.add(d.pred);
+    });
+    return ids;
+  }, [hoverId, tareas, dependencias]);
 
   const dias = useMemo(() => Array.from({ length: numDias }, (_, i) => addDays(desde, i)), [desde, numDias]);
   const meses = useMemo(() => {
@@ -423,6 +607,11 @@ export default function TareasGanttPage() {
       if (a.delta === 0) return;
 
       const { inicio, fin } = rangoConArrastre(item, a);
+      // Dependencias de la tarea arrastrada que pasan a incumplirse o se incumplen más que antes.
+      // No se bloquea el cambio: solo se avisa.
+      const nuevas = dependencias.pares.filter((d) => (d.pred === a.id || d.succ === a.id) && solape(d, a) > solape(d, null));
+      if (nuevas.length > 0)
+        setAviso(nuevas.map((d) => ({ ...d, predTitulo: tituloDe(d.pred), succTitulo: tituloDe(d.succ) })));
       const fechaInicio = aIso(inicio);
       const fechaObjetivo = aIso(fin);
       // Actualización optimista: se pinta ya y, si falla, se recarga desde el servidor.
@@ -443,7 +632,65 @@ export default function TareasGanttPage() {
       window.removeEventListener("pointercancel", onUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arrastrando, diaPx, planificadas]);
+  }, [arrastrando, diaPx, planificadas, dependencias]);
+
+  // Desplaza las sucesoras del aviso para que empiecen el día laborable siguiente al fin de la
+  // última de sus predecesoras pendientes, conservando su duración en días laborables.
+  const moverSucesoras = () => {
+    const cambios: { id: string; fechaInicio: string; fechaObjetivo: string }[] = [];
+    new Set(avisoVigente.map((x) => x.succ)).forEach((succ) => {
+      const rs = rangoDe(succ, null);
+      if (!rs) return;
+      let finPred: Date | null = null;
+      for (const d of dependencias.pares) {
+        if (d.succ !== succ || cerrada(d.pred)) continue;
+        const rp = rangoDe(d.pred, null);
+        if (rp && (!finPred || rp.fin > finPred)) finPred = rp.fin;
+      }
+      if (!finPred || rs.inicio > finPred) return;
+      const inicio = siguienteLaborable(finPred);
+      const fin = finTrasLaborables(inicio, contarLaborables(rs.inicio, rs.fin));
+      cambios.push({ id: succ, fechaInicio: aIso(inicio), fechaObjetivo: aIso(fin) });
+    });
+    if (cambios.length === 0) {
+      setAviso(null);
+      return;
+    }
+    setMoviendoSucesoras(true);
+    setError(null);
+    const porId = new Map(cambios.map((c) => [c.id, c]));
+    setTareas((prev) => prev.map((t) => (porId.has(t.id) ? { ...t, ...porId.get(t.id)! } : t)));
+    Promise.all(cambios.map((c) => tareasApi.cambiarFechas(c.id, c.fechaInicio, c.fechaObjetivo)))
+      .then(() => setAviso(null))
+      .catch(() => setError("No se han podido mover todas las tareas sucesoras."))
+      .finally(() => {
+        setMoviendoSucesoras(false);
+        // Se recarga para refrescar también las fechas resumidas de las dependencias.
+        cargar();
+      });
+  };
+
+  // Recorre las dependencias incumplidas visibles: desplaza la vista hasta la siguiente
+  // sucesora afectada y la resalta un momento.
+  const irAConflicto = () => {
+    const el = scrollRef.current;
+    if (!el || conflictosVisibles.length === 0) return;
+    const id = conflictosVisibles[indiceConflicto.current % conflictosVisibles.length];
+    indiceConflicto.current++;
+    const b = barras.get(id)!;
+    el.scrollTo({
+      left: Math.max(0, b.x1 - (el.clientWidth - LEFT_W) / 3),
+      top: Math.max(0, HEADER_H + b.yc - el.clientHeight / 2),
+      behavior: "smooth",
+    });
+    setDestacadaId(id);
+  };
+
+  useEffect(() => {
+    if (!destacadaId) return;
+    const t = setTimeout(() => setDestacadaId(null), 2000);
+    return () => clearTimeout(t);
+  }, [destacadaId]);
 
   // ---- Creación de tareas haciendo clic en un hueco ----
 
@@ -499,7 +746,8 @@ export default function TareasGanttPage() {
           <h1 className="text-2xl font-semibold">Gantt de tareas</h1>
           <p className="text-sm text-muted">
             Arrastra los bordes de una barra para cambiar sus fechas o la barra entera para moverla. Haz clic en un hueco para crear
-            una tarea ese día. Las líneas unen tareas relacionadas.
+            una tarea ese día. Las flechas finas unen tareas relacionadas y las gruesas marcan dependencias (la predecesora debe
+            terminar antes de que empiece la sucesora).
           </p>
         </div>
         <div className="flex gap-1">
@@ -558,12 +806,64 @@ export default function TareasGanttPage() {
             <Checkbox.Control>
               <Checkbox.Indicator />
             </Checkbox.Control>
-            Solo tareas con relación
+            Solo tareas con relación o dependencia
           </Checkbox.Content>
         </Checkbox>
+        {incumplidas.length > 0 ? (
+          <button
+            type="button"
+            onClick={irAConflicto}
+            disabled={conflictosVisibles.length === 0}
+            title={
+              conflictosVisibles.length > 0
+                ? "Ir a la siguiente tarea que empieza antes de que termine su predecesora"
+                : "Las tareas afectadas no se ven con los filtros actuales"
+            }
+            className="flex items-center gap-1.5 self-center rounded-full border border-danger/40 bg-danger-soft px-2.5 py-1 text-xs font-medium text-danger hover:bg-danger-soft/70 disabled:cursor-default disabled:opacity-60"
+          >
+            <MarcaConflicto />
+            {incumplidas.length} {incumplidas.length === 1 ? "dependencia incumplida" : "dependencias incumplidas"}
+          </button>
+        ) : null}
       </div>
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
+
+      {avisoVigente.length > 0 ? (
+        <div role="status" className="flex items-start gap-3 rounded-xl border border-warning/50 bg-warning-soft px-4 py-3 text-sm">
+          <span aria-hidden className="text-lg leading-none text-warning">
+            ⚠
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">
+              Los cambios se han guardado, pero {avisoVigente.length === 1 ? "hay una dependencia" : `hay ${avisoVigente.length} dependencias`}{" "}
+              que no se cumple{avisoVigente.length === 1 ? "" : "n"}:
+            </p>
+            <ul className="mt-1 list-disc pl-5 text-xs">
+              {avisoVigente.map((x) => (
+                <li key={claveDep(x)}>
+                  «{x.succTitulo}» empieza antes de que termine «{x.predTitulo}»
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              isDisabled={moviendoSucesoras}
+              onPress={moverSucesoras}
+              aria-label="Mover las sucesoras al día laborable siguiente al fin de sus predecesoras"
+            >
+              {moviendoSucesoras ? <Spinner size="sm" /> : null}
+              Mover sucesoras
+            </Button>
+            <Button size="sm" variant="ghost" onPress={() => setAviso(null)}>
+              Descartar
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -668,6 +968,10 @@ export default function TareasGanttPage() {
                     item={f.item}
                     rango={rangoConArrastre(f.item, arrastre)}
                     arrastrando={arrastre?.id === f.item.tarea.id}
+                    destacada={destacadaId === f.item.tarea.id}
+                    conflictos={conflictosPorTarea.get(f.item.tarea.id) ?? null}
+                    predecesoras={(f.item.tarea.bloqueadaPor ?? []).map((d) => d.titulo)}
+                    sucesoras={(f.item.tarea.bloquea ?? []).map((d) => d.titulo)}
                     top={HEADER_H + f.y}
                     xDe={xDe}
                     diaPx={diaPx}
@@ -700,6 +1004,25 @@ export default function TareasGanttPage() {
                   <marker id="gantt-flecha" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                     <path d="M0,0 L8,4 L0,8 z" fill="context-stroke" />
                   </marker>
+                  {/* Puntas de las dependencias: tamaño fijo y color explícito (normal / incumplida) */}
+                  {[
+                    { id: "gantt-dep", color: COLOR_DEPENDENCIA },
+                    { id: "gantt-dep-ko", color: COLOR_DEPENDENCIA_INCUMPLIDA },
+                  ].map((m) => (
+                    <marker
+                      key={m.id}
+                      id={m.id}
+                      viewBox="0 0 8 8"
+                      refX="7"
+                      refY="4"
+                      markerWidth="8"
+                      markerHeight="8"
+                      markerUnits="userSpaceOnUse"
+                      orient="auto"
+                    >
+                      <path d="M0,0 L8,4 L0,8 z" fill={m.color} />
+                    </marker>
+                  ))}
                 </defs>
                 {conectores.map(({ a, b }) => {
                   const pa = barras.get(a)!;
@@ -715,10 +1038,28 @@ export default function TareasGanttPage() {
                       d={d}
                       fill="none"
                       stroke={resaltado ? "var(--accent)" : "var(--muted)"}
-                      strokeOpacity={relacionadasConHover && !resaltado ? 0.15 : resaltado ? 1 : 0.55}
-                      strokeWidth={resaltado ? 2.2 : 1.4}
+                      strokeOpacity={relacionadasConHover && !resaltado ? 0.12 : resaltado ? 1 : 0.4}
+                      strokeWidth={resaltado ? 2 : 1.2}
                       strokeDasharray={x2 < x1 ? "4 3" : undefined}
                       markerEnd="url(#gantt-flecha)"
+                    />
+                  );
+                })}
+                {/* Dependencias fin → inicio (en rojo si se incumplen) */}
+                {flechasDep.map((d) => {
+                  const ko = clavesIncumplidas.has(claveDep(d));
+                  const enHover = hoverId === d.pred || hoverId === d.succ;
+                  const opacidad = relacionadasConHover && !enHover ? 0.2 : ko || enHover ? 1 : 0.75;
+                  return (
+                    <path
+                      key={claveDep(d)}
+                      d={rutaDependencia(barras.get(d.pred)!, barras.get(d.succ)!)}
+                      fill="none"
+                      stroke={ko ? COLOR_DEPENDENCIA_INCUMPLIDA : COLOR_DEPENDENCIA}
+                      strokeOpacity={opacidad}
+                      strokeWidth={enHover ? 2.4 : 1.8}
+                      strokeLinejoin="round"
+                      markerEnd={`url(#${ko ? "gantt-dep-ko" : "gantt-dep"})`}
                     />
                   );
                 })}
@@ -771,6 +1112,10 @@ function FilaTarea({
   item,
   rango,
   arrastrando,
+  destacada,
+  conflictos,
+  predecesoras,
+  sucesoras,
   top,
   xDe,
   diaPx,
@@ -783,6 +1128,11 @@ function FilaTarea({
   item: TareaPlanificada;
   rango: { inicio: Date; fin: Date };
   arrastrando: boolean;
+  destacada: boolean;
+  // Predecesoras que aún no han terminado cuando empieza esta tarea (null si no hay conflicto).
+  conflictos: string[] | null;
+  predecesoras: string[];
+  sucesoras: string[];
   top: number;
   xDe: (d: Date) => number;
   diaPx: number;
@@ -797,13 +1147,19 @@ function FilaTarea({
   const cancelada = t.estado === "Cancelada";
   const x = xDe(rango.inicio);
   const w = (differenceInCalendarDays(rango.fin, rango.inicio) + 1) * diaPx;
-  const textoRango = `${format(rango.inicio, "d MMM", { locale: es })} → ${format(rango.fin, "d MMM", { locale: es })}`;
+  const textoRango = `${fechaCorta(rango.inicio)} → ${fechaCorta(rango.fin)}`;
+  const textoConflicto = conflictos
+    ? `⚠ Dependencia incumplida: empieza antes de que termine ${conflictos.join(", ")}`
+    : null;
   const tooltip = [
     t.titulo,
     `${t.proyectoCodigo} · ${ESTADO_TAREA_LABEL[t.estado]} · Prioridad ${PRIORIDAD_LABEL[t.prioridad]}`,
     `${textoRango}${item.estimada ? " (duración estimada)" : ""}${t.estaVencida ? " · Vencida" : ""}`,
     t.responsableNombre ? `Responsable: ${t.responsableNombre}` : "Sin responsable",
     t.relacionadas.length ? `Relacionada con: ${t.relacionadas.map((r) => r.titulo).join(", ")}` : null,
+    predecesoras.length ? `Depende de: ${predecesoras.join(", ")}` : null,
+    sucesoras.length ? `Bloquea a: ${sucesoras.join(", ")}` : null,
+    textoConflicto,
   ]
     .filter(Boolean)
     .join("\n");
@@ -832,6 +1188,7 @@ function FilaTarea({
             {t.relacionadas.length ? ` · 🔗 ${t.relacionadas.length}` : ""}
           </span>
         </span>
+        {conflictos ? <MarcaConflicto className="shrink-0" title={textoConflicto ?? undefined} /> : null}
       </button>
 
       <div
@@ -842,7 +1199,7 @@ function FilaTarea({
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onEditar()}
         className={`group absolute z-10 flex cursor-grab items-center gap-1 overflow-hidden rounded-md pl-2.5 pr-1.5 text-[10px] font-medium text-white shadow-sm hover:brightness-110 ${
           t.estaVencida ? HALO_VENCIDA : ""
-        } ${arrastrando ? "shadow-lg ring-2 ring-accent" : ""}`}
+        } ${arrastrando ? "shadow-lg ring-2 ring-accent" : ""} ${destacada ? "animate-pulse ring-2 ring-danger ring-offset-2" : ""}`}
         style={{
           left: LEFT_W + x + 1,
           width: Math.max(w - 2, 6),
@@ -879,6 +1236,15 @@ function FilaTarea({
           {t.titulo}
         </span>
       </div>
+
+      {conflictos ? (
+        <MarcaConflicto
+          className="absolute z-20 cursor-help"
+          title={textoConflicto ?? undefined}
+          // Sobre la esquina superior izquierda de la barra, sin tapar la punta de la flecha que llega a su inicio.
+          style={{ left: LEFT_W + x + 3, top: (ROW_H - BAR_H) / 2 - 7 }}
+        />
+      ) : null}
 
       {arrastrando ? (
         <span

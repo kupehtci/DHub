@@ -19,6 +19,26 @@ export function LegendColor({ color }: { color: string }) {
   return <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: color }} />;
 }
 
+// Flecha de conector para la leyenda: continua o discontinua, con color y grosor configurables.
+export function LegendArrow({
+  color = "var(--muted)",
+  dashed,
+  strokeWidth = 1.4,
+  opacity = 1,
+}: {
+  color?: string;
+  dashed?: boolean;
+  strokeWidth?: number;
+  opacity?: number;
+}) {
+  return (
+    <svg width="18" height="8" aria-hidden style={{ opacity }}>
+      <path d="M0,4 L12,4" stroke={color} strokeWidth={strokeWidth} strokeDasharray={dashed ? "3 2" : undefined} />
+      <path d="M11,1 L17,4 L11,7 z" fill={color} />
+    </svg>
+  );
+}
+
 // Leyenda compacta de los diagramas de Gantt: se coloca en la cabecera, a la derecha del título.
 // Los grupos se separan con una línea vertical y pueden llevar un rótulo.
 export function GanttLegend({ groups }: { groups: GanttLegendGroup[] }) {

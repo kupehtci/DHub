@@ -2,7 +2,7 @@ using DHub.Domain.Enums;
 
 namespace DHub.Domain.Entities;
 
-public class Tarea
+public class Tarea : IAuditable
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Titulo { get; set; } = string.Empty;
@@ -39,4 +39,9 @@ public class Tarea
         && FechaObjetivo.Value < DateOnly.FromDateTime(DateTime.UtcNow)
         && Estado != EstadoTarea.Hecha
         && Estado != EstadoTarea.Cancelada;
+
+    public DateTime CreadoEn { get; set; }
+    public DateTime ActualizadoEn { get; set; }
+
+    public ICollection<TareaCambio> Historial { get; set; } = new List<TareaCambio>();
 }

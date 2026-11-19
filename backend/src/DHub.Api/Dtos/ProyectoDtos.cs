@@ -82,7 +82,9 @@ public record HitoDto(
     string Nombre,
     DateOnly Fecha,
     EstadoHito Estado,
-    string? Descripcion
+    string? Descripcion,
+    DateTime CreadoEn,
+    DateTime ActualizadoEn
 );
 
 public record HitoCreateDto(
@@ -114,5 +116,7 @@ public record HitoListadoDto(
     string Nombre,
     DateOnly Fecha,
     EstadoHito Estado,
-    string? Descripcion
+    string? Descripcion,
+    DateTime CreadoEn,
+    DateTime ActualizadoEn
 );

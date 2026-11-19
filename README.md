@@ -48,7 +48,8 @@ DHub/
 `Hito` (siempre de un proyecto), `Riesgo` (riesgos y bloqueos), `Evento` (reuniones,
 entregas y otros eventos de calendario), `Vacacion` (periodo de vacaciones de una
 persona), `Festivo` (festivo nacional, autonómico o local que afecta a un conjunto de
-personas) y `Nota` (registro de actividad y comentarios, asociable a proyecto, tarea o
+personas), `TareaDependencia` (A debe terminar antes de que empiece B), `TareaCambio`
+(historial de cambios de cada tarea) y `Nota` (registro de actividad y comentarios, asociable a proyecto, tarea o
 persona).
 El detalle completo de columnas y relaciones
 está en las entidades de `backend/src/DHub.Domain/Entities` y en las configuraciones de
@@ -56,6 +57,10 @@ EF Core (`backend/src/DHub.Infrastructure/Data/Configurations`).
 
 Reglas de negocio aplicadas en el backend:
 
+- Tareas, riesgos e hitos guardan su **fecha de creación y de última modificación**, y
+  cada cambio de una tarea (estado, responsable, fechas, prioridad, estimación…) queda en
+  su **historial** con fecha y autor. Ambas cosas las rellena `AppDbContext` al guardar.
+- Las **dependencias** entre tareas no pueden ser circulares (se valida al guardarlas).
 - Una **persona puede pertenecer a varios equipos a la vez** (relación muchos a
   muchos `Persona` ↔ `Equipo`, tabla `EquipoPersona`).
 - Una tarea en estado **Bloqueada** exige motivo, responsable y fecha de revisión
@@ -124,13 +129,17 @@ El menú lateral agrupa las vistas relacionadas en desplegables (**Proyectos**,
    hitos, matriz de riesgos y eventos por tipo.
 9. **Riesgos y bloqueos**: listado global con impacto, probabilidad, responsable,
    estado y fecha de revisión; alta/edición y exportación CSV.
-10. **Vacaciones**: vista mensual tipo "quién está fuera" con una fila por persona
+10. **Capacidad**: matriz persona × semana con el % de ocupación: la estimación de cada
+    tarea abierta repartida entre las semanas que dura (32 h en 2 semanas = 16 h por
+    semana) frente a la disponibilidad, descontando vacaciones y festivos. Aparte, las
+    tareas vencidas sin cerrar y las que no tienen fechas, y desglose de cada semana.
+11. **Vacaciones**: vista mensual tipo "quién está fuera" con una fila por persona
     (filtrable por equipo) y una columna por día. Permite registrar **vacaciones** o
     **festivos** (nacionales, autonómicos o locales) indicando a qué personas
     afectan; los festivos se muestran en verde. Exportación a **Excel** del año con
     resumen por persona (días naturales y laborables), detalle de vacaciones y
     festivos.
-11. **Configuración**: tema claro/oscuro/sistema, **Mi cuenta** (nombre, usuario,
+12. **Configuración**: tema claro/oscuro/sistema, **Mi cuenta** (nombre, usuario,
     email y cambio de contraseña) e **Integración con Jira**.
 
 Todos los selectores de fecha usan el calendario de HeroUI en español, y los
@@ -257,7 +266,9 @@ para añadir/quitar miembros —una persona puede estar en varios equipos— y
 filtro `desde`/`hasta`), `/api/vacaciones` (filtros `personaId`/`equipoId`/`desde`/`hasta`),
 `/api/festivos` (mismos filtros), `/api/hitos` (listado global con filtros
 `q`/`proyectoId`/`equipoId`/`estado`/`desde`/`hasta`), `/api/analiticas/hitos`,
-`/api/dashboard` (acepta `hoy` con la fecha local del cliente) y `/api/auth`
+`/api/capacidad` (matriz semanal) y
+`/api/capacidad/ausencias`, `/api/tareas/{id}/historial`, `/api/tareas/{id}/dependencias`,
+`/api/analiticas/tiempos-estado`, `/api/dashboard` (acepta `hoy` con la fecha local del cliente) y `/api/auth`
 (`POST /login`, `GET /me`, `PUT /perfil`, `PUT /password`). Los listados principales
 exponen un endpoint `/export` adicional que devuelve CSV; `/api/vacaciones/export`
 devuelve un Excel (`.xlsx`).
@@ -266,13 +277,44 @@ devuelve un Excel (`.xlsx`).
 
 - Autenticación con Microsoft Entra ID.
 - Vista semanal/diaria adicional en el calendario (hoy solo vista mensual).
-- Historial de cambios de estado de las tareas (permitiría medir el tiempo medio
-  bloqueado y el flujo real en Analíticas).
 
 ## Changelog
 
 El número de versión se indica al principio de cada mensaje de commit y en
 `frontend/package.json` y `backend/Directory.Build.props`.
+
+### 1.4.2 — en desarrollo
+
+_Pendiente de publicar: la versión actual sigue siendo la 1.4.1._
+
+**Datos nuevos**
+- **Historial de cada tarea**: qué cambió (estado, responsable, proyecto, fechas,
+  prioridad, tipo, estimación, título o motivo de bloqueo), de qué valor a cuál, cuándo y
+  quién. Pestaña «Historial» en la ficha de la tarea.
+- **Fecha de creación y de última modificación** en tareas, riesgos e hitos.
+- Migración `HistorialImputacionesDependencias`. En los datos ya existentes, la fecha de
+  creación es aproximada (inicio de la tarea o detección del riesgo) y el historial
+  empieza con el estado de cada tarea en el momento de aplicar la migración.
+- Las horas imputadas se descartan (la fuente de verdad de las horas es Jira): la
+  migración `EliminarImputaciones` borra la tabla que había creado la anterior.
+
+**Ficha de tarea**
+- La descripción admite **Markdown** con el mismo editor que los eventos (barra de
+  formato, vista previa y caja que crece al escribir).
+
+**Planificación y capacidad**
+- Nueva página **Capacidad**: ocupación por persona y semana según la estimación de sus
+  tareas repartida entre las semanas que duran, descontando vacaciones y festivos de la
+  capacidad, con las tareas vencidas y sin fechas aparte y el desglose de cada semana.
+- **Aviso de ausencias** en el formulario de tarea si el responsable tiene vacaciones o
+  festivos dentro de las fechas planificadas.
+- **Dependencias entre tareas** («bloqueada por»), sin ciclos. El Gantt de tareas dibuja
+  las flechas, marca en rojo las incumplidas, avisa al arrastrar una tarea que rompe una
+  dependencia y permite mover las sucesoras.
+
+**Analíticas**
+- Tareas creadas frente a cerradas, tiempo medio en cada estado y tiempo medio bloqueada
+  (a partir del historial).
 
 ### 1.4.1 — 2026-11-16
 

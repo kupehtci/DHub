@@ -139,6 +139,88 @@ export interface Tarea {
   jiraTicketUrl: string | null;
   jiraTicketClave: string | null;
   relacionadas: TareaRelacionada[];
+  creadoEn: string;
+  actualizadoEn: string;
+  // Dependencias fin → inicio: tareas que deben terminar antes que esta, y las que esperan a esta.
+  bloqueadaPor: TareaDependencia[];
+  bloquea: TareaDependencia[];
+}
+
+export interface TareaDependencia {
+  id: string;
+  titulo: string;
+  proyectoCodigo: string;
+  estado: EstadoTarea;
+  fechaInicio: string | null;
+  fechaObjetivo: string | null;
+}
+
+export interface TareaCambio {
+  id: string;
+  fecha: string;
+  usuario: string;
+  // Propiedad cambiada ("Estado", "ResponsableId"…), "Creada" o "HistorialIniciado".
+  campo: string;
+  valorAnterior: string | null;
+  valorNuevo: string | null;
+}
+
+export interface CapacidadTarea {
+  tareaId: string;
+  titulo: string;
+  proyectoCodigo: string;
+  horas: number;
+  vencida: boolean;
+}
+
+export interface CapacidadSemana {
+  lunes: string;
+  capacidadHoras: number;
+  cargaHoras: number;
+  diasAusencia: number;
+  ausencias: string[];
+  tareas: CapacidadTarea[];
+}
+
+export interface CapacidadPersona {
+  personaId: string;
+  nombre: string;
+  equipos: EquipoResumen[];
+  disponibilidadSemanalHoras: number;
+  // Estimación de tareas que no se pueden situar en la matriz: sin fechas, o ya vencidas sin cerrar.
+  horasSinPlanificar: number;
+  horasAtrasadas: number;
+  tareasSinPlanificar: CapacidadTarea[];
+  tareasAtrasadas: CapacidadTarea[];
+  semanas: CapacidadSemana[];
+}
+
+export interface Capacidad {
+  desde: string;
+  semanas: number;
+  personas: CapacidadPersona[];
+}
+
+export interface Ausencia {
+  tipo: "Vacaciones" | "Festivo";
+  detalle: string;
+  fechaInicio: string;
+  fechaFin: string;
+}
+
+export interface TiempoEstado {
+  estado: EstadoTarea;
+  diasTotales: number;
+  tareas: number;
+  mediaDias: number;
+}
+
+export interface TiemposEstado {
+  estados: TiempoEstado[];
+  episodiosBloqueo: number;
+  bloqueosAbiertos: number;
+  mediaDiasBloqueo: number | null;
+  historialDesde: string | null;
 }
 
 export interface Hito {
@@ -148,6 +230,8 @@ export interface Hito {
   fecha: string;
   estado: EstadoHito;
   descripcion: string | null;
+  creadoEn?: string;
+  actualizadoEn?: string;
 }
 
 // Hito con los datos de su proyecto (listado global de hitos).
@@ -176,6 +260,8 @@ export interface Riesgo {
   estado: EstadoRiesgo;
   fechaDeteccion: string;
   fechaRevision: string | null;
+  creadoEn: string;
+  actualizadoEn: string;
 }
 
 export interface Nota {

@@ -190,3 +190,11 @@ export const IconFlag = (p: SVGProps<SVGSVGElement>) => (
     <path d="M5 4h11l-2 4 2 4H5" />
   </svg>
 );
+
+export const IconGauge = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M4 18a8 8 0 1 1 16 0" />
+    <path d="M12 18l4-6" />
+    <path d="M4 18h16" />
+  </svg>
+);

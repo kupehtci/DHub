@@ -2,7 +2,7 @@ using DHub.Domain.Enums;
 
 namespace DHub.Domain.Entities;
 
-public class Riesgo
+public class Riesgo : IAuditable
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid? ProyectoId { get; set; }
@@ -19,4 +19,7 @@ public class Riesgo
     public EstadoRiesgo Estado { get; set; } = EstadoRiesgo.Identificado;
     public DateOnly FechaDeteccion { get; set; }
     public DateOnly? FechaRevision { get; set; }
+
+    public DateTime CreadoEn { get; set; }
+    public DateTime ActualizadoEn { get; set; }
 }

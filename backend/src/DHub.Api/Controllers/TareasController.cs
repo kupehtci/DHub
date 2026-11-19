@@ -40,6 +40,26 @@ public class TareasController : ControllerBase
                     .OrderBy(t => t.Titulo).ToList());
     }
 
+    // Completa los DTO con lo que no viene en la entidad: relacionadas y dependencias.
+    private async Task<List<TareaDto>> EnriquecerAsync(List<Tarea> tareas)
+    {
+        var ids = tareas.Select(t => t.Id).ToList();
+        var relaciones = await CargarRelacionesAsync(ids);
+
+        var dependencias = await _db.TareasDependencias
+            .Where(d => ids.Contains(d.PredecesoraId) || ids.Contains(d.SucesoraId))
+            .Include(d => d.Predecesora!).ThenInclude(t => t.Proyecto)
+            .Include(d => d.Sucesora!).ThenInclude(t => t.Proyecto)
+            .ToListAsync();
+
+        return tareas.Select(t => t.ToDto() with
+        {
+            Relacionadas = relaciones.GetValueOrDefault(t.Id, new()),
+            BloqueadaPor = dependencias.Where(d => d.SucesoraId == t.Id).Select(d => d.Predecesora!.ToDependenciaDto()).OrderBy(d => d.FechaObjetivo).ToList(),
+            Bloquea = dependencias.Where(d => d.PredecesoraId == t.Id).Select(d => d.Sucesora!.ToDependenciaDto()).OrderBy(d => d.FechaInicio).ToList(),
+        }).ToList();
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<TareaDto>>> Listar(
         [FromQuery] Guid? proyectoId, [FromQuery] Guid? equipoId, [FromQuery] Guid? responsableId,
@@ -60,8 +80,7 @@ public class TareasController : ControllerBase
         if (vencida.HasValue)
             tareas = tareas.Where(t => t.EsVencida() == vencida.Value).ToList();
 
-        var relaciones = await CargarRelacionesAsync(tareas.Select(t => t.Id));
-        return tareas.Select(t => t.ToDto() with { Relacionadas = relaciones.GetValueOrDefault(t.Id, new()) }).ToList();
+        return await EnriquecerAsync(tareas);
     }
 
     [HttpGet("{id:guid}")]
@@ -69,8 +88,59 @@ public class TareasController : ControllerBase
     {
         var tarea = await BaseQuery().FirstOrDefaultAsync(t => t.Id == id);
         if (tarea is null) return NotFound();
-        var relaciones = await CargarRelacionesAsync(new[] { id });
-        return tarea.ToDto() with { Relacionadas = relaciones.GetValueOrDefault(id, new()) };
+        return (await EnriquecerAsync([tarea]))[0];
+    }
+
+    // Historial de cambios de la tarea, del más reciente al más antiguo.
+    [HttpGet("{id:guid}/historial")]
+    public async Task<ActionResult<List<TareaCambioDto>>> Historial(Guid id)
+    {
+        if (!await _db.Tareas.AnyAsync(t => t.Id == id)) return NotFound();
+        return await _db.TareasHistorial
+            .Where(c => c.TareaId == id)
+            .OrderByDescending(c => c.Fecha).ThenBy(c => c.Campo)
+            .Select(c => new TareaCambioDto(c.Id, c.Fecha, c.Usuario, c.Campo, c.ValorAnterior, c.ValorNuevo))
+            .ToListAsync();
+    }
+
+    // Sustituye las tareas que bloquean a esta (predecesoras). Rechaza dependencias circulares.
+    [HttpPut("{id:guid}/dependencias")]
+    public async Task<IActionResult> ActualizarDependencias(Guid id, TareaDependenciasUpdateDto dto)
+    {
+        if (!await _db.Tareas.AnyAsync(t => t.Id == id)) return NotFound();
+
+        var nuevos = dto.PredecesorasIds.Where(p => p != id).Distinct().ToList();
+        var validos = await _db.Tareas.Where(t => nuevos.Contains(t.Id)).Select(t => t.Id).ToListAsync();
+
+        // Grafo actual sin las predecesoras de esta tarea (se van a sustituir).
+        var aristas = await _db.TareasDependencias
+            .Where(d => d.SucesoraId != id)
+            .Select(d => new { d.PredecesoraId, d.SucesoraId })
+            .ToListAsync();
+        var sucesoras = aristas.GroupBy(a => a.PredecesoraId).ToDictionary(g => g.Key, g => g.Select(a => a.SucesoraId).ToList());
+
+        // Hay ciclo si alguna predecesora nueva depende (directa o indirectamente) de esta tarea.
+        var alcanzables = new HashSet<Guid>();
+        var pendientes = new Stack<Guid>([id]);
+        while (pendientes.Count > 0)
+        {
+            var actual = pendientes.Pop();
+            foreach (var s in sucesoras.GetValueOrDefault(actual, []))
+                if (alcanzables.Add(s)) pendientes.Push(s);
+        }
+        var circulares = validos.Where(alcanzables.Contains).ToList();
+        if (circulares.Count > 0)
+        {
+            var titulos = await _db.Tareas.Where(t => circulares.Contains(t.Id)).Select(t => t.Titulo).ToListAsync();
+            return BadRequest($"Dependencia circular: {string.Join(", ", titulos)} ya depende de esta tarea.");
+        }
+
+        var actuales = await _db.TareasDependencias.Where(d => d.SucesoraId == id).ToListAsync();
+        _db.TareasDependencias.RemoveRange(actuales);
+        foreach (var p in validos)
+            _db.TareasDependencias.Add(new TareaDependencia { PredecesoraId = p, SucesoraId = id });
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpPut("{id:guid}/relaciones")]
@@ -133,7 +203,7 @@ public class TareasController : ControllerBase
         _db.Tareas.Add(tarea);
         await _db.SaveChangesAsync();
         var creada = await BaseQuery().FirstAsync(t => t.Id == tarea.Id);
-        return CreatedAtAction(nameof(Obtener), new { id = tarea.Id }, creada.ToDto());
+        return CreatedAtAction(nameof(Obtener), new { id = tarea.Id }, (await EnriquecerAsync([creada]))[0]);
     }
 
     [HttpPut("{id:guid}")]
@@ -216,6 +286,10 @@ public class TareasController : ControllerBase
             .Where(r => r.TareaOrigenId == id || r.TareaDestinoId == id)
             .ToListAsync();
         _db.TareasRelacionadas.RemoveRange(relaciones);
+        var dependencias = await _db.TareasDependencias
+            .Where(d => d.PredecesoraId == id || d.SucesoraId == id)
+            .ToListAsync();
+        _db.TareasDependencias.RemoveRange(dependencias);
         _db.Tareas.Remove(tarea);
         await _db.SaveChangesAsync();
         return NoContent();

@@ -1,4 +1,4 @@
-import type { EstadoHito } from "../types";
+import type { EstadoHito, TiemposEstado } from "../types";
 import { api } from "./api";
 
 export interface AnaliticasFiltros {
@@ -31,4 +31,6 @@ function qs(params: AnaliticasFiltros) {
 
 export const analiticasApi = {
   hitos: (f: AnaliticasFiltros = {}) => api.get<HitoAnalitica[]>(`/api/analiticas/hitos${qs(f)}`),
+  // Tiempo pasado en cada estado y episodios de bloqueo, calculados con el historial de cambios de las tareas.
+  tiemposEstado: (f: AnaliticasFiltros = {}) => api.get<TiemposEstado>(`/api/analiticas/tiempos-estado${qs(f)}`),
 };

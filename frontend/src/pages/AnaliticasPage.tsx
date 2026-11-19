@@ -37,6 +37,7 @@ import {
   type Proyecto,
   type Riesgo,
   type Tarea,
+  type TiemposEstado,
   type TipoEvento,
   type TipoTarea,
   type Vacacion,
@@ -50,6 +51,12 @@ import {
 const iso = (d: Date) => format(d, "yyyy-MM-dd");
 const parse = (s: string) => new Date(`${s}T00:00:00`);
 const dia = (s: string | null | undefined) => (s ? s.slice(0, 10) : null);
+// Para marcas de tiempo completas (ISO UTC, p. ej. creadoEn): día en la zona horaria local.
+const diaLocal = (s: string | null | undefined) => {
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : iso(d);
+};
 const HOY = iso(new Date());
 
 function enRango(s: string | null, desde: string, hasta: string) {
@@ -204,6 +211,8 @@ export default function AnaliticasPage() {
   const [vacaciones, setVacaciones] = useState<Vacacion[]>([]);
   const [festivos, setFestivos] = useState<Festivo[]>([]);
   const [hitos, setHitos] = useState<HitoAnalitica[]>([]);
+  // undefined = primera carga, null = error (al cambiar filtros se mantiene el dato anterior hasta que llega el nuevo)
+  const [tiempos, setTiempos] = useState<TiemposEstado | null | undefined>(undefined);
 
   // Filtros
   const [equipoId, setEquipoId] = useState<string | null>(null);
@@ -244,19 +253,28 @@ export default function AnaliticasPage() {
 
   useEffect(() => {
     let cancelado = false;
+    const f = {
+      equipoId: equipoId ?? undefined,
+      proyectoId: proyectoId ?? undefined,
+      personaId: personaId ?? undefined,
+      desde: desde || undefined,
+      hasta: hasta || undefined,
+    };
     analiticasApi
-      .hitos({
-        equipoId: equipoId ?? undefined,
-        proyectoId: proyectoId ?? undefined,
-        personaId: personaId ?? undefined,
-        desde: desde || undefined,
-        hasta: hasta || undefined,
-      })
+      .hitos(f)
       .then((r) => {
         if (!cancelado) setHitos(r.data);
       })
       .catch(() => {
         if (!cancelado) setHitos([]);
+      });
+    analiticasApi
+      .tiemposEstado(f)
+      .then((r) => {
+        if (!cancelado) setTiempos(r.data);
+      })
+      .catch(() => {
+        if (!cancelado) setTiempos(null);
       });
     return () => {
       cancelado = true;
@@ -356,6 +374,7 @@ export default function AnaliticasPage() {
   const kpis = useMemo(() => {
     const cerradas = tareasScope.filter((t) => cerradaEn(t, desde, hasta));
     const iniciadas = tareasScope.filter((t) => t.estado !== "Cancelada" && enRango(dia(t.fechaInicio), desde, hasta)).length;
+    const creadas = tareasScope.filter((t) => enRango(diaLocal(t.creadoEn), desde, hasta)).length;
 
     const conInicio = cerradas.filter((t) => t.fechaInicio);
     const leadTime = conInicio.length
@@ -376,6 +395,7 @@ export default function AnaliticasPage() {
     return {
       cerradas: cerradas.length,
       iniciadas,
+      creadas,
       leadTime,
       leadTimeN: conInicio.length,
       aTiempoPct: conObjetivo.length ? Math.round((aTiempo / conObjetivo.length) * 100) : null,
@@ -403,6 +423,7 @@ export default function AnaliticasPage() {
         const cerradas = tareasScope.filter((t) => cerradaEn(t, p.inicio, p.fin));
         return {
           label: p.label,
+          creadas: tareasScope.filter((t) => enRango(diaLocal(t.creadoEn), p.inicio, p.fin)).length,
           iniciadas: tareasScope.filter((t) => t.estado !== "Cancelada" && enRango(dia(t.fechaInicio), p.inicio, p.fin)).length,
           cerradas: cerradas.length,
           aTiempo: cerradas.filter((t) => t.fechaObjetivo && dia(t.fechaCierre)! <= dia(t.fechaObjetivo)!).length,
@@ -586,6 +607,20 @@ export default function AnaliticasPage() {
     [eventosScope],
   );
 
+  // ---- Tiempo en cada estado (historial de cambios) ----
+  const tiempoPorEstado = useMemo(() => {
+    if (!tiempos) return [];
+    // Hecha y Cancelada son estados finales: el tiempo en ellos no aporta información de flujo.
+    return ESTADOS_TAREA.filter((e) => e !== "Hecha" && e !== "Cancelada").flatMap((e) => {
+      const fila = tiempos.estados.find((x) => x.estado === e);
+      return fila
+        ? [{ estado: ESTADO_TAREA_LABEL[e], dias: fila.mediaDias, tareas: fila.tareas, total: fila.diasTotales, color: CHIP_COLOR_TO_CHART[ESTADO_TAREA_COLOR[e]] }]
+        : [];
+    });
+  }, [tiempos]);
+  const historialDesde = diaLocal(tiempos?.historialDesde);
+  const historialParcial = Boolean(historialDesde && (!desde || historialDesde > desde));
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -601,7 +636,7 @@ export default function AnaliticasPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold">Analíticas</h1>
-        <p className="text-sm text-muted">Flujo de entrega, carga del equipo, proyectos, hitos y riesgos · {textoPeriodo}</p>
+        <p className="text-sm text-muted">Flujo de entrega, carga del equipo, horas, proyectos, hitos y riesgos · {textoPeriodo}</p>
       </div>
 
       {/* Filtros */}
@@ -651,8 +686,14 @@ export default function AnaliticasPage() {
       </Card>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi hint={`${kpis.iniciadas} iniciadas en el periodo`} label="Tareas cerradas" tone="success" value={kpis.cerradas} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+        <Kpi hint={`${kpis.iniciadas} iniciadas en el periodo`} label="Tareas creadas" tone="accent" value={kpis.creadas} />
+        <Kpi
+          hint={`Balance ${kpis.cerradas - kpis.creadas > 0 ? "+" : ""}${kpis.cerradas - kpis.creadas} frente a las creadas`}
+          label="Tareas cerradas"
+          tone="success"
+          value={kpis.cerradas}
+        />
         <Kpi
           hint={kpis.leadTimeN ? `Inicio → cierre · ${kpis.leadTimeN} tareas` : "Sin tareas cerradas con fecha de inicio"}
           label="Lead time medio"
@@ -678,6 +719,18 @@ export default function AnaliticasPage() {
           value={kpis.bloqueadas}
         />
         <Kpi
+          hint={
+            tiempos === undefined
+              ? "Cargando historial…"
+              : tiempos === null
+                ? "No se pudo cargar el historial"
+                : `${tiempos.episodiosBloqueo} bloqueos resueltos en el periodo · ${tiempos.bloqueosAbiertos} abiertos`
+          }
+          label="Tiempo medio bloqueada"
+          tone={tiempos?.mediaDiasBloqueo ? (tiempos.mediaDiasBloqueo > 5 ? "danger" : tiempos.mediaDiasBloqueo > 2 ? "warning" : "success") : "default"}
+          value={tiempos?.mediaDiasBloqueo == null ? "—" : `${tiempos.mediaDiasBloqueo.toFixed(1)} d`}
+        />
+        <Kpi
           hint={`${kpis.abiertas} tareas abiertas${kpis.sinEstimar ? ` · ${kpis.sinEstimar} sin estimar` : ""}`}
           label="Horas estimadas abiertas"
           tone="accent"
@@ -686,11 +739,14 @@ export default function AnaliticasPage() {
         <Kpi hint="Impacto alto o crítico, no mitigados ni cerrados" label="Riesgos altos abiertos" tone={kpis.riesgosAltos ? "danger" : "default"} value={kpis.riesgosAltos} />
       </div>
 
-      <Seccion description="Tareas iniciadas y cerradas en el periodo, y cumplimiento de la fecha objetivo." title="Flujo de entrega">
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <Seccion
+        description="Tareas creadas, iniciadas y cerradas en el periodo, cumplimiento de la fecha objetivo y tiempo que pasan las tareas en cada estado."
+        title="Flujo de entrega"
+      >
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
           <ChartCard
-            description={`Por ${semanal ? "semana" : "mes"}: tareas con fecha de inicio frente a tareas cerradas (estado Hecha)`}
-            title="Iniciadas vs. cerradas"
+            description={`Por ${semanal ? "semana" : "mes"}: tareas creadas, con fecha de inicio y cerradas (estado Hecha). En las tareas anteriores al registro de la fecha de creación, esta es aproximada (su fecha de inicio o la de la migración).`}
+            title="Creadas vs. cerradas"
           >
             <ResponsiveContainer height="100%" width="100%">
               <BarChart data={flujo}>
@@ -699,7 +755,8 @@ export default function AnaliticasPage() {
                 <YAxis allowDecimals={false} axisLine={false} tick={axisTick} tickLine={false} />
                 <Tooltip {...tooltipStyle} cursor={cursorStyle} />
                 <Legend wrapperStyle={legendStyle} />
-                <Bar dataKey="iniciadas" fill={CHART_COLORS.accent} name="Iniciadas" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="creadas" fill={CHART_COLORS.accent} name="Creadas" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="iniciadas" fill={CHART_COLORS.muted} name="Iniciadas" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="cerradas" fill={CHART_COLORS.success} name="Cerradas" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -718,6 +775,49 @@ export default function AnaliticasPage() {
                 <Bar dataKey="sinObjetivo" fill={CHART_COLORS.muted} name="Sin fecha objetivo" radius={[4, 4, 0, 0]} stackId="c" stroke="var(--surface)" strokeWidth={1} />
               </BarChart>
             </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard
+            className="lg:col-span-2 2xl:col-span-1"
+            description={
+              historialParcial
+                ? `Días naturales de media por tarea dentro del periodo. Historial disponible desde ${formatFecha(historialDesde)}.`
+                : "Días naturales de media por tarea dentro del periodo, según el historial de cambios de estado"
+            }
+            title="Tiempo en cada estado"
+          >
+            {tiempos === undefined ? (
+              <div className="flex h-full items-center justify-center">
+                <Spinner />
+              </div>
+            ) : tiempos === null ? (
+              <Vacio>No se pudo cargar el historial de estados.</Vacio>
+            ) : tiempoPorEstado.length === 0 ? (
+              <Vacio>
+                {historialDesde ? "No hay cambios de estado registrados en el periodo." : "Todavía no hay historial de cambios de estado."}
+              </Vacio>
+            ) : (
+              <ResponsiveContainer height="100%" width="100%">
+                <BarChart data={tiempoPorEstado} layout="vertical" margin={{ left: 8 }}>
+                  <CartesianGrid horizontal={false} stroke="var(--border)" />
+                  <XAxis axisLine={{ stroke: "var(--border)" }} tick={axisTick} tickLine={false} type="number" unit=" d" />
+                  <YAxis axisLine={false} dataKey="estado" tick={axisTick} tickLine={false} type="category" width={120} />
+                  <Tooltip
+                    {...tooltipStyle}
+                    cursor={cursorStyle}
+                    labelFormatter={(label) => {
+                      const fila = tiempoPorEstado.find((f) => f.estado === label);
+                      return fila ? `${fila.estado} (${fila.tareas} ${fila.tareas === 1 ? "tarea" : "tareas"} · ${fila.total} días en total)` : String(label);
+                    }}
+                  />
+                  <Bar dataKey="dias" name="Media por tarea" radius={[0, 4, 4, 0]} unit=" días">
+                    {tiempoPorEstado.map((e) => (
+                      <Cell key={e.estado} fill={e.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </ChartCard>
         </div>
       </Seccion>
@@ -853,6 +953,8 @@ export default function AnaliticasPage() {
           </ChartCard>
         </div>
       </Seccion>
+
+
 
       <Seccion description="Estado de la cartera, proyectos con incidencias, hitos del periodo, riesgos abiertos y calendario." title="Proyectos, hitos y riesgos">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
