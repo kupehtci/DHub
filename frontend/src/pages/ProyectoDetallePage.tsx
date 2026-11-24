@@ -5,13 +5,14 @@ import { useParams } from "react-router-dom";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DatePickerField } from "../components/DatePickerField";
 import { FormModal } from "../components/FormModal";
-import { IconCalendar, IconPlus, IconTeam, IconUsers } from "../components/Icons";
+import { IconCalendar, IconEdit, IconPlus, IconTeam, IconUsers } from "../components/Icons";
 import { JiraLink } from "../components/JiraLink";
 import { RiesgoFormModal } from "../components/RiesgoFormModal";
 import { SelectField } from "../components/SelectField";
 import { StatusChip } from "../components/StatusChip";
 import { PrioridadChip } from "../components/PrioridadChip";
 import { PersonaAvatar } from "../components/PersonaAvatar";
+import { ProyectoFormModal } from "../components/ProyectoFormModal";
 import { TareaFormModal } from "../components/TareaFormModal";
 import { useJiraTickets } from "../hooks/useJiraTickets";
 import { hitosApi, jiraApi, notasApi, personasApi, proyectosApi, tareasApi } from "../lib/api";
@@ -47,6 +48,7 @@ export default function ProyectoDetallePage() {
   const [hitoForm, setHitoForm] = useState({ nombre: "", fecha: hoyIso(), estado: "Pendiente" as EstadoHito, descripcion: "" });
   const [notaForm, setNotaForm] = useState({ autorId: null as string | null, tipo: "Seguimiento" as TipoNota, texto: "" });
   const [deleteTarea, setDeleteTarea] = useState<Tarea | null>(null);
+  const [editarProyectoOpen, setEditarProyectoOpen] = useState(false);
 
   const [jiraTicketsProyecto, setJiraTicketsProyecto] = useState<JiraTicketInfo[]>([]);
   const [jiraProyectoLoading, setJiraProyectoLoading] = useState(false);
@@ -173,8 +175,14 @@ export default function ProyectoDetallePage() {
         <div className="flex items-center gap-2">
           <PrioridadChip prioridad={proyecto.prioridad} />
           <StatusChip color={ESTADO_PROYECTO_COLOR[proyecto.estado]} label={ESTADO_PROYECTO_LABEL[proyecto.estado]} />
+          <Button size="sm" variant="secondary" onPress={() => setEditarProyectoOpen(true)}>
+            <IconEdit />
+            Editar
+          </Button>
         </div>
       </div>
+
+      <ProyectoFormModal isOpen={editarProyectoOpen} onOpenChange={setEditarProyectoOpen} proyecto={proyecto} onSaved={cargar} />
 
       <Tabs selectedKey={tab} onSelectionChange={(k) => setTab(String(k))}>
         <Tabs.ListContainer>

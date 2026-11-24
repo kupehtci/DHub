@@ -2,6 +2,7 @@ import { Button, Card, FieldError, Input, Label, TextField } from "@heroui/react
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { PanoramaIcon } from "../components/brand/PanoramaLogo";
 
 export default function LoginPage() {
   const { isAuthenticated, login } = useAuth();
@@ -34,9 +35,12 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm gap-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold text-foreground">DHub</h1>
-          <p className="text-sm text-muted">Panel de coordinación técnica de proyectos y equipos</p>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <PanoramaIcon size={56} />
+          <div className="flex flex-col gap-1">
+            <h1 className="text-xl font-semibold text-foreground">Panorama</h1>
+            <p className="text-sm text-muted">Panel de coordinación técnica de proyectos y equipos</p>
+          </div>
         </div>
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <TextField isRequired name="usuario" value={usuario} onChange={setUsuario}>

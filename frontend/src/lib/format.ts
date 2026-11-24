@@ -238,3 +238,8 @@ export const PRIORIDAD_GANTT_COLOR: Record<Prioridad, string> = {
   Alta: "#f97316", // orange-500
   Critica: "#7f1d1d", // red-900
 };
+
+// Equipos y proyectos que ya no están en marcha: se muestran atenuados en los listados.
+export const esEquipoInactivo = (estado: EstadoEquipo) => estado === "Inactivo";
+export const esProyectoInactivo = (estado: EstadoProyecto) => estado === "Cerrado" || estado === "Cancelado";
+export const TARJETA_INACTIVA_CLASS = "border-dashed bg-surface-secondary opacity-70 hover:opacity-100 transition-opacity";

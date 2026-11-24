@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Panorama.Api/Panorama.Api.csproj" />
+    <Project Path="src/Panorama.Domain/Panorama.Domain.csproj" />
+    <Project Path="src/Panorama.Infrastructure/Panorama.Infrastructure.csproj" />
+  </Folder>
+</Solution>

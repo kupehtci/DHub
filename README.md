@@ -1,4 +1,4 @@
-# DHub — Panel de coordinación técnica
+# Panorama — Panel de coordinación técnica
 
 **Versión actual: 1.4.1** · [Changelog](#changelog)
 
@@ -7,13 +7,16 @@ equipos TIC (sistemas de información del Ministerio). Permite saber en todo mom
 qué está haciendo cada persona, qué proyectos están activos, qué tareas están
 bloqueadas o retrasadas y qué entregas o riesgos requieren atención.
 
+> Antes conocida como **DHub**. La base de datos (usuario, BD y volumen de Docker) y las
+> claves de `localStorage` conservan el nombre interno `dhub` para no perder datos ni sesiones.
+
 ## Stack técnico
 
 - **Frontend**: React 19 + TypeScript + Vite, [HeroUI v3](https://heroui.com) (React Aria)
   + Tailwind CSS v4, React Router, dnd-kit (tableros Kanban), Recharts (analíticas),
   date-fns (calendario), Axios, react-markdown + remark-gfm (notas de eventos).
 - **Backend**: .NET 10 Web API (ASP.NET Core), arquitectura en 3 capas
-  (`DHub.Domain` / `DHub.Infrastructure` / `DHub.Api`), Entity Framework Core,
+  (`Panorama.Domain` / `Panorama.Infrastructure` / `Panorama.Api`), Entity Framework Core,
   documentación OpenAPI con Swagger UI (`/swagger`), ClosedXML (exportación a Excel).
 - **Base de datos**: PostgreSQL 16.
 - **Despliegue**: Docker + Docker Compose (un `Dockerfile` por servicio).
@@ -23,12 +26,12 @@ bloqueadas o retrasadas y qué entregas o riesgos requieren atención.
 ```
 DHub/
 ├── backend/
-│   ├── DHub.slnx
+│   ├── Panorama.slnx
 │   ├── Dockerfile
 │   └── src/
-│       ├── DHub.Domain/          # Entidades y enumerados (sin dependencias)
-│       ├── DHub.Infrastructure/  # EF Core: DbContext, configuraciones, migraciones, seed
-│       └── DHub.Api/             # Controllers REST, DTOs, mapeos, Program.cs (Swagger, CORS)
+│       ├── Panorama.Domain/          # Entidades y enumerados (sin dependencias)
+│       ├── Panorama.Infrastructure/  # EF Core: DbContext, configuraciones, migraciones, seed
+│       └── Panorama.Api/             # Controllers REST, DTOs, mapeos, Program.cs (Swagger, CORS)
 ├── frontend/
 │   ├── Dockerfile
 │   ├── nginx.conf                # Proxy /api y /swagger hacia el backend en producción
@@ -52,8 +55,8 @@ personas), `TareaDependencia` (A debe terminar antes de que empiece B), `TareaCa
 (historial de cambios de cada tarea) y `Nota` (registro de actividad y comentarios, asociable a proyecto, tarea o
 persona).
 El detalle completo de columnas y relaciones
-está en las entidades de `backend/src/DHub.Domain/Entities` y en las configuraciones de
-EF Core (`backend/src/DHub.Infrastructure/Data/Configurations`).
+está en las entidades de `backend/src/Panorama.Domain/Entities` y en las configuraciones de
+EF Core (`backend/src/Panorama.Infrastructure/Data/Configurations`).
 
 Reglas de negocio aplicadas en el backend:
 
@@ -231,7 +234,7 @@ Requisitos: .NET SDK 10, PostgreSQL accesible (puedes levantar solo la base con
 
 ```bash
 cd backend
-dotnet run --project src/DHub.Api
+dotnet run --project src/Panorama.Api
 ```
 
 La cadena de conexión por defecto (`appsettings.json`) apunta a

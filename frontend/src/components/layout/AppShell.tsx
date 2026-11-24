@@ -2,6 +2,7 @@ import { Button, useTheme } from "@heroui/react";
 import { useState, type ComponentType, type SVGProps } from "react";
 import { NavLink, Outlet, matchPath, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { PanoramaLogo } from "../brand/PanoramaLogo";
 import {
   IconCalendar,
   IconChartBar,
@@ -151,8 +152,7 @@ export function AppShell() {
     <div className="flex h-full min-h-screen w-full bg-background text-foreground">
       <aside className="flex w-64 shrink-0 flex-col gap-1 border-r border-border bg-surface p-4">
         <div className="mb-4 px-2">
-          <p className="text-lg font-semibold">DHub</p>
-          <p className="text-xs text-muted">Coordinación técnica</p>
+          <PanoramaLogo size={36} subtitle="Coordinación técnica" />
         </div>
         <nav className="flex flex-1 flex-col gap-1">
           {NAV_ITEMS.map((item) =>

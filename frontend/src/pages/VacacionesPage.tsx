@@ -4,6 +4,7 @@ import { es } from "date-fns/locale";
 import { useEffect, useMemo, useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconDownload, IconPlus } from "../components/Icons";
 import { PersonaAvatar } from "../components/PersonaAvatar";
+import { SearchableMultiSelect } from "../components/SearchableMultiSelect";
 import { SelectField } from "../components/SelectField";
 import { VacacionFormModal, type TipoAusencia } from "../components/VacacionFormModal";
 import { equiposApi, festivosApi, personasApi, vacacionesApi } from "../lib/api";
@@ -23,6 +24,7 @@ export default function VacacionesPage() {
   const [festivos, setFestivos] = useState<Festivo[]>([]);
   const [exportando, setExportando] = useState(false);
   const [filtroEquipo, setFiltroEquipo] = useState<string | null>(null);
+  const [filtroPersonas, setFiltroPersonas] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<{
     open: boolean;
@@ -62,9 +64,23 @@ export default function VacacionesPage() {
 
   useEffect(cargar, [mes]);
 
-  const personas = useMemo(
+  // Personas del equipo filtrado: son las que se ofrecen en el filtro de personas.
+  const personasDelEquipo = useMemo(
     () => (filtroEquipo ? todasLasPersonas.filter((p) => p.equipos.some((e) => e.id === filtroEquipo)) : todasLasPersonas),
     [todasLasPersonas, filtroEquipo],
+  );
+
+  // Al cambiar de equipo, se descartan las personas seleccionadas que no pertenecen a él.
+  useEffect(() => {
+    setFiltroPersonas((sel) => {
+      const filtradas = sel.filter((id) => personasDelEquipo.some((p) => p.id === id));
+      return filtradas.length === sel.length ? sel : filtradas;
+    });
+  }, [personasDelEquipo]);
+
+  const personas = useMemo(
+    () => (filtroPersonas.length ? personasDelEquipo.filter((p) => filtroPersonas.includes(p.id)) : personasDelEquipo),
+    [personasDelEquipo, filtroPersonas],
   );
 
   const festivoEnDia = (personaId: string, dia: Date) => {
@@ -111,6 +127,15 @@ export default function VacacionesPage() {
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-56">
             <SelectField emptyOption="Todos los equipos" label="Equipo" options={equipos.map((e) => ({ id: e.id, label: e.nombre }))} value={filtroEquipo} onChange={setFiltroEquipo} />
+          </div>
+          <div className="w-72">
+            <SearchableMultiSelect
+              label="Personas"
+              options={personasDelEquipo.map((p) => ({ id: p.id, label: p.nombre }))}
+              placeholder="Todas las personas"
+              values={filtroPersonas}
+              onChange={setFiltroPersonas}
+            />
           </div>
           <Button isPending={exportando} variant="secondary" onPress={exportar}>
             <IconDownload />

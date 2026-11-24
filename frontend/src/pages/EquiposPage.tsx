@@ -8,7 +8,7 @@ import { PersonaAvatar } from "../components/PersonaAvatar";
 import { SelectField } from "../components/SelectField";
 import { StatusChip } from "../components/StatusChip";
 import { equiposApi, personasApi } from "../lib/api";
-import { ESTADO_EQUIPO_LABEL } from "../lib/format";
+import { ESTADO_EQUIPO_LABEL, esEquipoInactivo, TARJETA_INACTIVA_CLASS } from "../lib/format";
 import type { Equipo, EstadoEquipo, Persona } from "../types";
 
 interface FormState {
@@ -93,10 +93,16 @@ export default function EquiposPage() {
           <p className="text-sm text-muted">Cargando...</p>
         ) : (
           equipos.map((e) => (
-            <div key={e.id} className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
+            <div
+              key={e.id}
+              className={`flex flex-col gap-3 rounded-xl border border-border p-4 ${esEquipoInactivo(e.estado) ? TARJETA_INACTIVA_CLASS : "bg-surface"}`}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <Link to={`/equipos/${e.id}`} className="font-semibold text-link hover:underline">
+                  <Link
+                    to={`/equipos/${e.id}`}
+                    className={`font-semibold hover:underline ${esEquipoInactivo(e.estado) ? "text-muted" : "text-link"}`}
+                  >
                     {e.nombre}
                   </Link>
                   <p className="flex items-center gap-1.5 text-xs text-muted">
